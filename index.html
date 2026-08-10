@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Foodbridge Dashboard — Mockup v1</title>
+<meta name="description" content="Frozen discovery mockup (v1) of the Foodbridge dashboard module — a static HTML/CSS/JS prototype.">
+<meta name="robots" content="noindex, nofollow">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<style>html,body{font-family:system-ui,sans-serif,Arial,Helvetica}</style>
+</head>
+<body class="antialiased bg-gray-50 text-slate-800">
+
+<header class="border-b border-slate-200 bg-white">
+  <div class="mx-auto max-w-5xl px-6 py-8">
+    <div class="flex items-start gap-3">
+      <div class="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-emerald-50">
+        <svg class="h-5 w-5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/>
+          <rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>
+        </svg>
+      </div>
+      <div class="min-w-0">
+        <p class="text-xs font-semibold uppercase tracking-widest text-emerald-700">Discovery snapshot · v1 · frozen</p>
+        <h1 class="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Foodbridge Dashboard — Mockup v1</h1>
+        <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
+          A static, clickable mockup of the admin dashboard module: five KPI tiles over five report
+          tabs, plus the screens its row actions lead to. Plain HTML, CSS and vanilla JS driven by a
+          seed file — no framework, no build step, no backend.
+        </p>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-5xl px-6 py-10">
+
+  <!-- ── Start here ───────────────────────────────────────────── -->
+  <section>
+    <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Start here</h2>
+    <a class="group mt-3 block rounded-2xl border border-emerald-600 bg-emerald-50 p-5 transition hover:bg-emerald-100/60"
+       href="v1/screens/dashboard/dashboard.html">
+      <div class="flex items-center justify-between gap-4">
+        <div class="min-w-0">
+          <h3 class="text-lg font-semibold text-slate-900">Dashboard <span class="font-normal text-slate-500">— the whole screen</span></h3>
+          <p class="mt-1 text-sm leading-relaxed text-slate-600">
+            Sidebar and header chrome, five KPI tiles, and all five report tabs. Everything on this
+            screen is live: filters, sorting, pagination, expanding rows, the invoice print flows,
+            Smart Insights, and the follow-up reminders modal.
+          </p>
+        </div>
+        <span class="hidden flex-shrink-0 text-2xl text-emerald-700 transition group-hover:translate-x-0.5 sm:block">→</span>
+      </div>
+    </a>
+  </section>
+
+  <!-- ── The five report tabs ─────────────────────────────────── -->
+  <section class="mt-10">
+    <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">The five report tabs</h2>
+    <p class="mt-1 text-xs text-slate-500">
+      Tabs switch in-page, so these all open the same screen — the description tells you what to click.
+    </p>
+    <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+
+      <a class="block rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-emerald-500" href="v1/screens/dashboard/dashboard.html">
+        <div class="flex items-baseline justify-between gap-2">
+          <h3 class="text-sm font-bold text-slate-900">Product Sales</h3>
+          <span class="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Tab 1</span>
+        </div>
+        <p class="mt-1 text-xs leading-relaxed text-slate-500">
+          Products ranked by sales or quantity for a chosen period, with the article number and sale
+          unit. Five periods, five sort orders, paginated at 8.
+        </p>
+      </a>
+
+      <a class="block rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-emerald-500" href="v1/screens/dashboard/dashboard.html">
+        <div class="flex items-baseline justify-between gap-2">
+          <h3 class="text-sm font-bold text-slate-900">Recent Orders</h3>
+          <span class="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Tab 2</span>
+        </div>
+        <p class="mt-1 text-xs leading-relaxed text-slate-500">
+          Latest orders with dispatch/delivery chips. Expand a row for Details · Items · Comments ·
+          Fulfillment; hover the ⚡ for Smart Insights; Invoice ▾ offers A4 and Thermal printing.
+        </p>
+      </a>
+
+      <a class="block rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-emerald-500" href="v1/screens/dashboard/dashboard.html">
+        <div class="flex items-baseline justify-between gap-2">
+          <h3 class="text-sm font-bold text-slate-900">Discount Report</h3>
+          <span class="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Tab 3</span>
+        </div>
+        <p class="mt-1 text-xs leading-relaxed text-slate-500">
+          Order value → discount → net, by customer or by route. Rows expand into their products;
+          By&nbsp;Route swaps in a Round&nbsp;Off column and per-page totals.
+        </p>
+      </a>
+
+      <a class="block rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-emerald-500" href="v1/screens/dashboard/dashboard.html">
+        <div class="flex items-baseline justify-between gap-2">
+          <h3 class="text-sm font-bold text-slate-900">Order Cycle</h3>
+          <span class="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Tab 4</span>
+        </div>
+        <p class="mt-1 text-xs leading-relaxed text-slate-500">
+          Who is overdue against their <em>own</em> ordering cadence — the re-order prompt list.
+          Filter by Overdue · Due Soon · On Track · New.
+        </p>
+      </a>
+
+      <a class="block rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-emerald-500" href="v1/screens/dashboard/dashboard.html">
+        <div class="flex items-baseline justify-between gap-2">
+          <h3 class="text-sm font-bold text-slate-900">Salesman Route Report</h3>
+          <span class="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Tab 5</span>
+        </div>
+        <p class="mt-1 text-xs leading-relaxed text-slate-500">
+          Cash vs UPI collected, opening cash, expense, handed over — and the difference to chase,
+          red when the salesman is short.
+        </p>
+      </a>
+
+      <a class="block rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-emerald-500" href="v1/screens/dashboard/index.html">
+        <div class="flex items-baseline justify-between gap-2">
+          <h3 class="text-sm font-bold text-slate-900">Module hub</h3>
+          <span class="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Index</span>
+        </div>
+        <p class="mt-1 text-xs leading-relaxed text-slate-500">
+          The question each report tab answers, and which destinations are in scope.
+        </p>
+      </a>
+    </div>
+  </section>
+
+  <!-- ── Screens the row actions lead to ─────────────────────── -->
+  <section class="mt-10">
+    <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Reachable from Recent Orders</h2>
+    <div class="mt-3 grid gap-3 sm:grid-cols-2">
+
+      <a class="block rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-emerald-500"
+         href="v1/screens/dashboard/order.html?order=20268813551797&amp;status=Delivered">
+        <h3 class="text-sm font-bold text-slate-900">Order detail</h3>
+        <p class="mt-1 text-xs leading-relaxed text-slate-500">
+          The eye button's destination. Details grid, item list, and both print flows.
+          <span class="mt-1 block font-mono text-[11px] text-slate-400">order.html?order=…&amp;status=…</span>
+        </p>
+      </a>
+
+      <a class="block rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-emerald-500"
+         href="v1/screens/dashboard/order-timeline.html?order=20268813551797&amp;status=Delivered">
+        <h3 class="text-sm font-bold text-slate-900">Order timeline</h3>
+        <p class="mt-1 text-xs leading-relaxed text-slate-500">
+          The clock button's destination. Fulfilment steps derived from the order status graph.
+          <span class="mt-1 block font-mono text-[11px] text-slate-400">order-timeline.html?order=…&amp;status=…</span>
+        </p>
+      </a>
+    </div>
+  </section>
+
+  <!-- ── Behind the screens ──────────────────────────────────── -->
+  <section class="mt-10">
+    <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Behind the screens</h2>
+    <div class="mt-3 grid gap-3 sm:grid-cols-2">
+
+      <a class="block rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-emerald-500" href="v1/index.html">
+        <h3 class="text-sm font-bold text-slate-900">Wiring hub &amp; transition map</h3>
+        <p class="mt-1 text-xs leading-relaxed text-slate-500">
+          Every event on the screen and where it leads — the proto-state-machine the prototype exists
+          to produce, including which values are <em>derived</em> rather than stored.
+        </p>
+      </a>
+
+      <a class="block rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-emerald-500" href="v1/seed-data/seed.json">
+        <h3 class="text-sm font-bold text-slate-900">Seed data <span class="font-normal text-slate-400">(JSON)</span></h3>
+        <p class="mt-1 text-xs leading-relaxed text-slate-500">
+          The single fake-but-representative dataset every screen reads. Its per-period totals
+          reconcile with each KPI tile.
+        </p>
+      </a>
+    </div>
+  </section>
+
+  <!-- ── Reading it correctly ────────────────────────────────── -->
+  <section class="mt-10 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+    <h2 class="text-sm font-bold text-amber-900">How to read this</h2>
+    <ul class="mt-2 space-y-1.5 text-xs leading-relaxed text-amber-900/90">
+      <li>• <b>It is a mockup, not the product.</b> Nothing is saved — every interaction is local to
+        the page, and a reload resets it. There is no backend.</li>
+      <li>• <b>The data is invented.</b> Representative shapes and volumes, not real figures.</li>
+      <li>• <b>A few edges are deliberate dead ends</b>, and say so when clicked: creating an order,
+        sending a reminder, and connecting a thermal printer all belong to other modules.</li>
+      <li>• <b>Frozen at v1.</b> Everything under <code class="rounded bg-amber-100 px-1">/v1/</code>
+        is the accepted snapshot, unaltered. Later iterations get their own version folder; this one
+        will not change.</li>
+      <li>• Needs a network connection — the stylesheet loads from a CDN at runtime.</li>
+    </ul>
+  </section>
+
+  <footer class="mt-10 border-t border-slate-200 pt-5 text-xs text-slate-400">
+    Discovery snapshot v1 · accepted 2026-08-10 · static site, no analytics, no cookies.
+  </footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!doctype html>
+<!--
+  DISCOVERY WIRING — Foodbridge Module Dashboard
+  ---------------------------------------------------------
+  This file is the WIRING only — the hub + transition map. It holds NO screen
+  content; screens live in screens/. The transition map below is the proto-FSM
+  that SSOT-1 (state-machine) and SSOT-5 (workflow) are later derived from.
+  Rules:
+  - HTML/CSS/vanilla JS only. No frameworks, no build step, no real API calls.
+  - Screens are standalone-openable and link to each other; this hub is the entry.
+  - Use seed-data/seed.json for any data.
+  - Disposable. When a version is accepted, snapshot the whole folder
+    (screens/ + index.html + seed-data) into versions/vN/.
+  - Nothing here is imported by development/. It only informs the SSOTs.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Foodbridge Module Dashboard — Discovery (wiring)</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 2rem; max-width: 860px; }
+    h1 { font-size: 1.25rem; }
+    h2 { font-size: 1rem; margin-top: 1.5rem; }
+    .note { color: #666; font-size: 0.85rem; }
+    a { color: #06c; }
+    table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+    th, td { border: 1px solid #ddd; padding: 0.4rem 0.6rem; text-align: left; vertical-align: top; }
+    code { font-size: 0.85em; }
+  </style>
+</head>
+<body>
+  <h1>Foodbridge Module Dashboard — Discovery Prototype (wiring hub)</h1>
+  <p class="note">Iteration goal: recreate the live admin dashboard
+  (<code>b2bgreens.com/platform/dashboard</code>) faithfully enough to argue about what an owner
+  needs to see on landing — and to establish which of the five reports earn a place there.</p>
+
+  <h2>Screens</h2>
+  <ul>
+    <li><a href="screens/dashboard/index.html">Dashboard module hub</a> — what each report tab answers</li>
+    <li><a href="screens/dashboard/dashboard.html">Dashboard (desktop)</a> — 5 KPI tiles + 5 report tabs, the whole screen</li>
+    <li><a href="screens/dashboard/order-timeline.html?order=20268813551797&amp;status=Delivered">Order Timeline</a> — destination of the clock button in Recent Orders</li>
+    <li><a href="screens/dashboard/order.html?order=20268813551797&amp;status=Delivered">Order (detail)</a> — destination of the eye button in Recent Orders</li>
+  </ul>
+  <p><a href="screens/dashboard/dashboard.html"><strong>▶ Start the flow →</strong></a></p>
+
+  <h2>Transition map (→ SSOT-1 state-machine / SSOT-5 workflow)</h2>
+  <table>
+    <thead><tr><th>From screen / state</th><th>Event</th><th>To</th></tr></thead>
+    <tbody>
+      <tr><td>Dashboard · <code>viewing.productSales</code></td><td>select report tab</td><td><code>viewing.{recentOrders, discount, orderCycle, salesmanRoute}</code></td></tr>
+      <tr><td>Dashboard · <code>viewing.productSales</code></td><td>change period (All Time · Today · Yesterday · This Month · Last Month)</td><td>same state, re-queried; empty period → empty state</td></tr>
+      <tr><td>Dashboard · <code>viewing.productSales</code></td><td>change sort (sales / qty / name)</td><td>same state, re-ranked</td></tr>
+      <tr><td>Dashboard · <code>viewing.recentOrders</code></td><td>expand order row</td><td>same state, line items revealed inline</td></tr>
+      <tr><td>Dashboard · <code>viewing.recentOrders</code></td><td>change order status</td><td><strong>not possible here</strong> — the app passes <code>isOrderEditable={false}</code>, so the select is disabled. The transition <code>Inprogress → Dispatched → Delivered</code> | <code>Cancelled</code> is still domain truth, but it is driven from the Orders page</td></tr>
+      <tr><td>Dashboard · <code>viewing.recentOrders</code></td><td>hover ⚡</td><td>same state — Smart Insights popover (derived, read-only)</td></tr>
+      <tr><td>Dashboard · <code>viewing.recentOrders</code></td><td>View Timeline</td><td><code>order-timeline.html?order=&lt;id&gt;&amp;status=&lt;status&gt;</code> — app route <code>/order-timeline/&lt;invoice&gt;/&lt;status&gt;</code></td></tr>
+      <tr><td>Dashboard · <code>viewing.recentOrders</code></td><td>view order</td><td><code>order.html?order=&lt;id&gt;&amp;status=&lt;status&gt;</code> — app route <code>/order/&lt;invoice&gt;/&lt;status&gt;</code></td></tr>
+      <tr><td>Dashboard · <code>viewing.recentOrders</code></td><td>Invoice ▾ → A4 Print</td><td>Tax Invoice document → browser print dialog</td></tr>
+      <tr><td>Dashboard · <code>viewing.recentOrders</code></td><td>Invoice ▾ → Thermal Print</td><td>Thermal Print Preview modal (blocked on printer connection)</td></tr>
+      <tr><td>Dashboard · <code>viewing.recentOrders</code></td><td>Follow-up Reminders</td><td><em>out of scope this iteration</em> — raises a prototype notice</td></tr>
+      <tr><td>Order Timeline / Order</td><td>back · cross-link</td><td>each other, and back to Dashboard</td></tr>
+      <tr><td>Dashboard · <code>viewing.discount</code></td><td>toggle By Customer ↔ By Route</td><td>same state, different grouping + column header</td></tr>
+      <tr><td>Dashboard · <code>viewing.orderCycle</code></td><td>click legend chip (Overdue · Due Soon · On Track · New)</td><td>same state, filtered to that derived cycle status</td></tr>
+      <tr><td>Dashboard · <code>viewing.orderCycle</code></td><td>Refresh</td><td>same state, recomputed from <code>daysSince</code> vs <code>cadenceDays</code></td></tr>
+      <tr><td>Dashboard · <code>viewing.salesmanRoute</code></td><td>filter by route / staff</td><td>same state, filtered; <code>difference ≠ 0</code> is the exception to chase</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Two things in this map are <strong>derived, not stored</strong>, and are the candidates to carry
+  into SSOT-2 (domain model): the <em>order-cycle status</em> (<code>daysSince</code> vs the customer's own
+  <code>cadenceDays</code>) and the route-report <em>difference</em> (<code>handedOver − (openingCash + totalCollected − expense)</code>, i.e. actual
+  handover minus expected — negative means the salesman is short; it reconciles both seed rows).
+  Data for every screen comes from <a href="seed-data/seed.json">seed-data/seed.json</a>, mirrored inline in
+  <code>screens/dashboard/seed.inline.js</code> because <code>file://</code> blocks fetching local JSON.</p>
+</body>
+</html>
