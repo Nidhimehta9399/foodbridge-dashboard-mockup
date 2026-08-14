@@ -1433,6 +1433,16 @@
       chip: 'bg-slate-100 text-slate-700 border-slate-200', dot: 'bg-slate-400',
       why: 'Past agreed terms, or habitually late',
       todo: 'Needs a call, a visit or tighter terms'
+    },
+    /* The system cannot derive cause — so rows it cannot explain say so rather
+       than being force-fitted into the nearest bucket. A wrong cause sends the
+       owner to do the wrong thing; "not established" sends them to find out,
+       which is the correct next step and a real finding in its own right. */
+    unknown: {
+      label: 'Unclassified', head: 'Nobody knows why', bar: 'bg-violet-400',
+      chip: 'bg-violet-50 text-violet-700 border-violet-200 border-dashed', dot: 'bg-violet-400',
+      why: 'No dispute, no claim, no contact note on file',
+      todo: 'Someone has to find out before it can be worked'
     }
   };
   function rcOwner(r) { return RC_OWNER[rcCauseOf(r.cause).owner]; }
@@ -1456,6 +1466,9 @@
     terms_exceeded: [
       { k: 'collect', label: 'Collect payment' },
       { k: 'cashonly', label: 'Put on cash-only' }],
+    unclassified: [
+      { k: 'classify', label: 'Set the cause' },
+      { k: 'remind', label: 'Remind' }],
     habitual_late: [
       { k: 'collect', label: 'Collect payment' },
       { k: 'route', label: 'Assign to route collection' }]
@@ -1469,6 +1482,33 @@
     if (!r) return;
     r.lastContact = S.tenant.asOf;
     renderPanel();
+  }
+
+  /* Classifying is the second action this report can finish by itself. An
+     unexplained row is a question addressed to the office, and answering it is
+     the whole job — so the answer is recorded here rather than handed off. */
+  var rcClassifying = null;      // row id whose cause picker is open
+
+  function rcSetCause(id, causeId) {
+    var r = S.recoveryOutstanding.filter(function (x) { return x.id === id; })[0];
+    if (!r || !rcCauseOf(causeId)) return;
+    r.cause = causeId;
+    r.reason = 'Cause set from the recovery report on ' + fmtDate(S.tenant.asOf) + '.';
+    rcClassifying = null;
+    renderPanel();
+  }
+
+  function rcCausePicker(r) {
+    if (rcClassifying !== r.id) return '';
+    return '<div class="mt-2 rounded-lg border border-violet-200 bg-violet-50/60 p-2.5">' +
+      '<p class="text-xs font-semibold uppercase tracking-wide text-violet-700">What is actually holding it?</p>' +
+      '<div class="mt-2 flex flex-wrap gap-1.5">' +
+        S.recoveryCauses.filter(function (c) { return c.id !== 'unclassified'; }).map(function (c) {
+          return '<button data-rc-setcause="' + esc(c.id) + '" data-rc-forrow="' + esc(r.id) + '" ' +
+            'class="min-h-[36px] rounded-full border border-slate-200 bg-white px-3 text-xs font-medium ' +
+            'text-slate-700 hover:border-emerald-400 hover:bg-emerald-50">' + esc(c.label) + '</button>';
+        }).join('') +
+      '</div></div>';
   }
 
   var RC_DEAD = {
@@ -1511,9 +1551,10 @@
      and told the owner nothing they could act on. What only THIS report knows
      is how much of it we caused ourselves — so that is the headline now. */
   function rcSplit(all) {
-    var us = all.filter(function (r) { return rcCauseOf(r.cause).owner === 'us'; });
-    var them = all.filter(function (r) { return rcCauseOf(r.cause).owner === 'them'; });
-    return { us: rcSum(us), them: rcSum(them), usRows: us, themRows: them, total: rcSum(all) };
+    var by = function (o) { return all.filter(function (r) { return rcCauseOf(r.cause).owner === o; }); };
+    var us = by('us'), them = by('them'), unknown = by('unknown');
+    return { us: rcSum(us), them: rcSum(them), unknown: rcSum(unknown),
+             usRows: us, themRows: them, unknownRows: unknown, total: rcSum(all) };
   }
 
   function rcHeader(all) {
@@ -1521,6 +1562,8 @@
     var prev = S.recoveryCauses.reduce(function (a, c) { return a + c.prevOutstanding; }, 0);
     var d = sp.total - prev;
     var usPct = rcPct(sp.us, sp.total);
+    var themPct = rcPct(sp.them, sp.total);
+    var unkPct = 100 - usPct - themPct;   // absorbs the rounding, so the bar always fills
 
     /* Each half is a button. Filtering to "we are the blocker" is the single
        most useful click on the tab, and it is also what teaches the split —
@@ -1553,7 +1596,8 @@
       '</div>' +
       '<div class="flex flex-wrap items-start gap-x-6 gap-y-3 sm:gap-x-8">' +
         half(RC_OWNER.us, 'us', sp.us, usPct, sp.usRows.length) +
-        half(RC_OWNER.them, 'them', sp.them, 100 - usPct, sp.themRows.length) +
+        half(RC_OWNER.them, 'them', sp.them, themPct, sp.themRows.length) +
+        (sp.unknown ? half(RC_OWNER.unknown, 'unknown', sp.unknown, unkPct, sp.unknownRows.length) : '') +
         '<div class="ml-auto hidden text-right sm:block">' +
           '<p class="text-xs uppercase tracking-wide text-slate-400">Outstanding</p>' +
           '<p class="mt-0.5 text-lg font-semibold tabular-nums text-slate-700">' + money0(sp.total) + '</p>' +
@@ -1565,7 +1609,8 @@
       // one proportional bar — the split, readable without reading the numbers
       '<div class="mt-3 flex h-1.5 overflow-hidden rounded-full bg-slate-100">' +
         '<div class="' + RC_OWNER.us.bar + '" style="width:' + usPct + '%"></div>' +
-        '<div class="' + RC_OWNER.them.bar + '" style="width:' + (100 - usPct) + '%"></div>' +
+        '<div class="' + RC_OWNER.them.bar + '" style="width:' + themPct + '%"></div>' +
+        '<div class="' + RC_OWNER.unknown.bar + '" style="width:' + unkPct + '%"></div>' +
       '</div>' +
     '</section>';
   }
@@ -1627,8 +1672,11 @@
        1. our own errors first  — fixable without the customer at all
        2. then never contacted  — untried, so effort still changes the outcome
        3. then oldest           — and amount only as a tie-break */
+  var RC_OWNER_RANK = { us: 0, unknown: 1, them: 2 };
   function rcRank(r) {
-    return [rcCauseOf(r.cause).owner === 'us' ? 0 : 1, r.lastContact ? 1 : 0, -rcOldest(r), -r.outstanding];
+    // unexplained ranks above "chase the customer": finding out is an internal
+    // action you can start today, and nothing else can be decided until you do
+    return [RC_OWNER_RANK[rcCauseOf(r.cause).owner], r.lastContact ? 1 : 0, -rcOldest(r), -r.outstanding];
   }
   function rcSort(rows) {
     return rows.slice().sort(function (a, b) {
@@ -1683,7 +1731,7 @@
     });
     return '<div class="grid gap-2 grid-cols-1 min-[380px]:grid-cols-2 sm:flex sm:flex-wrap">' +
       acts.map(function (a, i) {
-        return '<button data-rc-act="' + a.k + '" ' +
+        return '<button data-rc-act="' + a.k + '" data-rc-for="' + esc(r.id) + '" ' +
           'class="min-h-[44px] rounded-lg px-3 text-sm font-semibold transition-colors ' +
           (i === 0 ? 'bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800'
                    : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50') + '">' +
@@ -1694,7 +1742,7 @@
         'class="min-h-[44px] rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold ' +
         'text-slate-700 transition-colors hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700">' +
         (r.lastContact ? 'Log another contact' : 'Log first contact') + '</button>' +
-    '</div>';
+    '</div>' + rcCausePicker(r);
   }
 
   function rcWhyStuck(r) {
@@ -1809,7 +1857,7 @@
         '<td class="' + TD + '"><p class="text-sm text-slate-700">' + esc(r.route.replace(' Route', '')) + '</p>' +
           '<p class="mt-0.5 text-xs text-slate-400">' + esc(r.salesman) + ' · last contact ' +
           (r.lastContact ? rcAge(r.lastContact) + 'd ago' : 'never') + '</p></td>' +
-        '<td class="' + TD + ' text-right"><button data-rc-act="' + prim.k + '" ' +
+        '<td class="' + TD + ' text-right"><button data-rc-act="' + prim.k + '" data-rc-for="' + esc(r.id) + '" ' +
           'class="min-h-[44px] whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold ' +
           'text-slate-700 transition-colors hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700">' +
           esc(prim.label) + '</button></td></tr>' +
@@ -1917,6 +1965,11 @@
        Actions are tested first: they sit inside cause cards and inside
        clickable table rows, so otherwise the click would also toggle the
        filter or expand the row underneath them. */
+    if ((t = e.target.closest('[data-rc-setcause]'))) { rcSetCause(t.dataset.rcForrow, t.dataset.rcSetcause); return; }
+    if ((t = e.target.closest('[data-rc-act="classify"]'))) {
+      rcClassifying = rcClassifying === t.dataset.rcFor ? null : t.dataset.rcFor;
+      renderPanel(); return;
+    }
     if ((t = e.target.closest('[data-rc-contact]'))) { rcLogContact(t.dataset.rcContact); return; }
     if ((t = e.target.closest('[data-rc-act]'))) {
       window.alert(RC_DEAD[t.dataset.rcAct]);

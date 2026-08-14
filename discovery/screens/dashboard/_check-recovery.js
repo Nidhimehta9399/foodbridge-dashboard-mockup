@@ -64,10 +64,18 @@ check('C2', 'cause totals = total', sum(Object.values(byCause), n => n) === tota
   Object.entries(byCause).map(([k, v]) => `${k} ${inr(v)}`).join(' · '));
 check('C2', 'every cause defined', unknown.length === 0, unknown.length ? unknown.join(', ') : 'no orphan cause ids');
 
+// C3 was `ours + theirs = total`, which was true by construction: theirs was
+// derived as total - ours, so it could not fail and it hid the third state.
+// Each side is summed independently now, and the header's three-way split must
+// account for every rupee.
 const ours = sum(rows.filter(r => ownerOf[r.cause] === 'us'), r => r.outstanding);
-const theirs = total - ours;
-check('C3', 'ours + theirs = total', ours + theirs === total,
-  `ours ${inr(ours)} + theirs ${inr(theirs)} = ${inr(ours + theirs)}`);
+const theirs = sum(rows.filter(r => ownerOf[r.cause] === 'them'), r => r.outstanding);
+const unclear = sum(rows.filter(r => ownerOf[r.cause] === 'unknown'), r => r.outstanding);
+check('C3', 'ours + theirs + unclear = total', ours + theirs + unclear === total,
+  `ours ${inr(ours)} + theirs ${inr(theirs)} + unclear ${inr(unclear)} = ${inr(ours + theirs + unclear)}`);
+check('C3b', 'every owner is a known state',
+  rows.every(r => ['us', 'them', 'unknown'].indexOf(ownerOf[r.cause]) !== -1),
+  'us | them | unknown');
 
 const byRoute = groupSum(rows, 'route');
 check('C4', 'route totals = total', sum(Object.values(byRoute), n => n) === total,
@@ -103,10 +111,16 @@ check('C9', 'no future invoices', futures.length === 0,
    Every cause carries a friction label and a unique rank. The three headline
    actions are route-led since addendum-004, but the rank still orders how
    causes read and is the hook if action ranking returns. */
-const ranks = causes.map(c => c.effortRank);
+// `unclassified` is deliberately unranked: effort is how hard a cause is to
+// fix, and you cannot rank the effort of fixing something nobody has diagnosed.
+// Giving it a number would be the same false precision the cause exists to
+// avoid — so it is excluded here rather than fitted with one.
+const ranked = causes.filter(c => c.id !== 'unclassified');
+const ranks = ranked.map(c => c.effortRank);
 const uniqueRanks = new Set(ranks).size === ranks.length;
-const allRanked = causes.every(c => Number.isInteger(c.effortRank) && c.effort);
-check('C10', 'effort ranks unique', uniqueRanks && allRanked,
+const allRanked = ranked.every(c => Number.isInteger(c.effortRank) && c.effort)
+  && causes.every(c => c.id !== 'unclassified' || (c.effortRank === undefined && !c.effort));
+check('C10', 'effort ranks unique (unclassified exempt)', uniqueRanks && allRanked,
   causes.slice().sort((a, b) => a.effortRank - b.effortRank)
     .map(c => `${c.effortRank} ${c.id}`).join(' · '));
 
