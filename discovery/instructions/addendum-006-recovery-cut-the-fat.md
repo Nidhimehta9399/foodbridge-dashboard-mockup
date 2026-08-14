@@ -31,22 +31,23 @@ The idea was right and the presentation was not. Measured on the shipped build:
 | D22 | Name the **blockage**, not the owner | "Ours to fix / Theirs to chase" did not read. Every rupee on this screen is ours, so "theirs" says the money belongs to them. The split is about *what is holding the money*, so the halves are now **"We are the blocker"** and **"Customer has not paid"**, each with the actual causes underneath ("wrong paperwork, failed deliveries, open disputes") and the action ("fix these without calling anyone"). |
 | D23 | Colour was backwards | Our own errors were emerald — green reads "healthy, nothing to do" for the one bucket that is entirely self-inflicted. Self-inflicted money is amber now; money a customer simply has not paid is neutral slate. |
 | D24 | The split filters, and that is how it teaches | Clicking a half filters the list *and* narrows the cause chips to that side. Choosing "we are the blocker" leaves exactly disputed / delivery-failed / not-acknowledged on screen, so the category explains itself from its contents instead of from a label. It is also the most useful single click on the tab. |
+| D25 | Drop the narrative sentence | "Pravin's round is the smallest but the oldest — that is a discipline problem" was the last piece of prose asking to be read before anything could be done. The same fact is already in the list: his shops sort near the top and carry their own day counts. Removed, along with `rcVerdictLine`. |
 | D21 | Chips scroll sideways on a phone | Wrapped they were nine stacked lines (~380px), taller than the panels they replaced. One scrolling row each ≈ 90px. |
 
 ## Result
 
 | | Before | After |
 | --- | ---: | ---: |
-| Debtor list header | y=1399 (443px below fold) | **y=634 — above the fold** |
-| First debtor row | below fold | **y=735 — above the fold** |
+| Debtor list header | y=1399 (443px below fold) | **y=629 — above the fold** |
+| First debtor row | below fold | **y=730 — three rows above the fold** |
 | Shops reachable without paging | 8 of 14 | **14 of 14** |
-| Desktop height | 2.5 screens | **2.25** — while showing 14 rows instead of 8 |
+| Desktop height | 2.5 screens | **2.24** — while showing 14 rows instead of 8 |
 | Mobile height | 4.0 screens | **3.4** |
 | Dead attributes | 23 | **0** |
 | Actions that complete | 0 | **1** |
 
 Removed: `rcVerdict`, `rcActions`, `rcActionsFor`, `rcWhy`, `rcCauseRow`, `rcRouteRow`,
-`rcAgeBar`, `rcAgeLegend`, `rcWhyIsOpen`, `rcDelta` (already unreferenced before this change).
+`rcAgeBar`, `rcAgeLegend`, `rcWhyIsOpen`, `rcVerdictLine`, `rcDelta` (already unreferenced before this change).
 
 ## Verified
 

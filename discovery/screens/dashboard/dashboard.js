@@ -1503,20 +1503,6 @@
     }).filter(function (r) { return r.shops; });
   }
 
-  /* ---- ① the verdict — one number, one sentence (D15) ---- */
-  function rcVerdictLine(all) {
-    var stats = rcRouteStats(all);
-    var worst = stats.slice().sort(function (a, b) { return b.avgAge - a.avgAge; })[0];
-    var biggest = stats.slice().sort(function (a, b) { return b.amount - a.amount; })[0];
-    if (!worst) return 'Nothing is outstanding.';
-    if (worst.route === biggest.route) {
-      return '<strong>' + esc(worst.salesman) + '</strong> carries both the most money and the oldest — ' +
-        money0(worst.amount) + ' averaging ' + worst.avgAge + ' days on ' + esc(worst.short) + '.';
-    }
-    return '<strong>' + esc(worst.salesman) + '</strong>’s round is the smallest at ' + money0(worst.amount) +
-      ' but the oldest at ' + worst.avgAge + ' days. That is a discipline problem, not a cash problem.';
-  }
-
   /* ---- ④ the list ---- */
 
   /* ---- ① the header — the split, then one sentence (D16) ----
@@ -1581,8 +1567,6 @@
         '<div class="' + RC_OWNER.us.bar + '" style="width:' + usPct + '%"></div>' +
         '<div class="' + RC_OWNER.them.bar + '" style="width:' + (100 - usPct) + '%"></div>' +
       '</div>' +
-      '<p class="mt-3 border-t border-slate-100 pt-3 text-sm leading-relaxed text-slate-700">' +
-        rcVerdictLine(all) + '</p>' +
     '</section>';
   }
 
