@@ -45,7 +45,7 @@ const ageOf = iso => {
 };
 
 /* ---- M2: the mirror is a mirror ---- */
-for (const key of ['_recoveryNote', 'recoveryCauses', 'recoveryAgeBuckets', 'recoveryTiers', 'recoveryOutstanding']) {
+for (const key of ['_recoveryNote', 'recoveryCauses', 'recoveryAgeBuckets', 'recoveryOutstanding']) {
   check('M2', key, JSON.stringify(S[key]) === JSON.stringify(canonical[key]),
     S[key] === undefined ? 'missing from seed.inline.js' : 'seed.json === seed.inline.js');
 }
@@ -99,9 +99,10 @@ const futures = rows.flatMap(r => r.invoices.filter(i => ageOf(i.date) < 0).map(
 check('C9', 'no future invoices', futures.length === 0,
   futures.length ? futures.join(', ') : `oldest ${Math.max(...rows.flatMap(r => r.invoices.map(i => ageOf(i.date))))}d`);
 
-/* ---- C10: the action ranking is well-formed (addendum-003) ----
-   "Do these three" takes the three least-effortful causes. A missing or
-   duplicated rank silently reorders the owner's morning. */
+/* ---- C10: effort metadata is well-formed (addendum-003) ----
+   Every cause carries a friction label and a unique rank. The three headline
+   actions are route-led since addendum-004, but the rank still orders how
+   causes read and is the hook if action ranking returns. */
 const ranks = causes.map(c => c.effortRank);
 const uniqueRanks = new Set(ranks).size === ranks.length;
 const allRanked = causes.every(c => Number.isInteger(c.effortRank) && c.effort);
@@ -109,20 +110,15 @@ check('C10', 'effort ranks unique', uniqueRanks && allRanked,
   causes.slice().sort((a, b) => a.effortRank - b.effortRank)
     .map(c => `${c.effortRank} ${c.id}`).join(' · '));
 
-/* ---- C11: every tier can render ---- */
-const tiers = S.recoveryTiers || [];
-check('C11', 'tiers well-formed', tiers.length === 3 &&
-  tiers.every(t => t.id && t.price && t.name && t.job && t.awake && t.fit),
-  tiers.map(t => `${t.price} ${t.name}`).join(' · ') || 'missing');
-
-/* ---- C12: the Grow verdict needs routes to actually differ ---- */
+/* ---- C11: the verdict names the route with the oldest book, so the routes
+   have to be separable — if two rounds age alike the headline is noise ---- */
 const routeAges = Object.fromEntries(S.routes.map(name => {
   const rs = rows.filter(r => r.route === name);
   const amt = sum(rs, r => r.outstanding);
   return [name, amt ? Math.round(sum(rs, r => Math.max(...r.invoices.map(i => ageOf(i.date))) * r.outstanding) / amt) : 0];
 }));
 const spread = Math.max(...Object.values(routeAges)) - Math.min(...Object.values(routeAges));
-check('C12', 'route ages separable', spread >= 10,
+check('C11', 'route ages separable', spread >= 10,
   Object.entries(routeAges).map(([k, v]) => `${k.replace(' Route', '')} ${v}d`).join(' · ') + ` (spread ${spread}d)`);
 
 console.log(failures ? `\n${failures} CHECK(S) FAILED` : '\nall checks pass');

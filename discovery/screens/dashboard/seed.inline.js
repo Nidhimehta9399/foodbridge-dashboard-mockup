@@ -153,7 +153,7 @@ window.SEED = {
   routes: [ "Hadapsar Route", "Sangola Route", "Kondhwa Route" ],
   staff: [ "Mahesh", "Sunil", "Pravin" ],
 
-  _recoveryNote: "The Dashboard's only view of money owed today is `paymentStatus` on an order. This tab groups receivables by WHY they are stuck, so the owner acts on a business area rather than a debtor list. INVENTED, because the source systems cannot produce them: `cause` (no dispute/credit-note linkage anywhere), every day-count (the Finance module has no due date or credit terms, so ageing is not computable), `route`/`salesman` on a receivable, and `lastContact` (follow-ups are tracked for ordering, not paying). Vocabulary — invoiced / collected / outstanding / advance / net receivable — is reused verbatim from the Finance module rather than reinvented, but none of its figures are: that seed carries 7 rupees of total outstanding, so it cannot drive this report. RECONCILES: rows sum to 32400 across 14 customers = the 5 cause totals = ours 14100 + theirs 18300 = the 3 route totals; each row's invoices sum to its outstanding; ageing buckets and oldest-age are DERIVED from invoice dates against tenant.asOf, never stored. `prevOutstanding` is the one stored aggregate (28700 total, so the month moved +3700) because no row can supply a prior state. 32400 is 17.3% of all-time sales (187070.70) — a plausible share, checked because an earlier draft exceeded the tenant's entire lifetime revenue. See discovery/instructions/addendum-002. ALSO INVENTED (addendum-003): `effort`/`effortRank` — how hard a cause is to fix is a human judgement, not a rule over the data, so it is stored like `cause` itself; and `recoveryTiers`, the three pricing personas the report is cut to. The tab shows a different first screen per tier because each persona is kept awake by a different question; the tier switcher is a discovery affordance for role-playing all three, not a product control.",
+  _recoveryNote: "The Dashboard's only view of money owed today is `paymentStatus` on an order. This tab groups receivables by WHY they are stuck, so the owner acts on a business area rather than a debtor list. INVENTED, because the source systems cannot produce them: `cause` (no dispute/credit-note linkage anywhere), every day-count (the Finance module has no due date or credit terms, so ageing is not computable), `route`/`salesman` on a receivable, and `lastContact` (follow-ups are tracked for ordering, not paying). Vocabulary — invoiced / collected / outstanding / advance / net receivable — is reused verbatim from the Finance module rather than reinvented, but none of its figures are: that seed carries 7 rupees of total outstanding, so it cannot drive this report. RECONCILES: rows sum to 32400 across 14 customers = the 5 cause totals = ours 14100 + theirs 18300 = the 3 route totals; each row's invoices sum to its outstanding; ageing buckets and oldest-age are DERIVED from invoice dates against tenant.asOf, never stored. `prevOutstanding` is the one stored aggregate (28700 total, so the month moved +3700) because no row can supply a prior state. 32400 is 17.3% of all-time sales (187070.70) — a plausible share, checked because an earlier draft exceeded the tenant's entire lifetime revenue. See discovery/instructions/addendum-002. ALSO INVENTED (addendum-003): `effort`/`effortRank` — how hard a cause is to fix is a human judgement, not a rule over the data, so it is stored like `cause` itself.",
   recoveryCauses: [
     {
       id: "disputed",
@@ -226,33 +226,6 @@ window.SEED = {
       id: "b60",
       label: "60d+",
       max: null
-    }
-  ],
-
-  recoveryTiers: [
-    {
-      id: "start",
-      price: "₹299",
-      name: "Start",
-      job: "Get off paper",
-      awake: "I'm still on paper and WhatsApp",
-      fit: "₹2–5 Cr · 3–5 salespeople · 1–2 routes"
-    },
-    {
-      id: "control",
-      price: "₹999",
-      name: "Control",
-      job: "Stop the leak",
-      awake: "I don't know where my cash and stock went",
-      fit: "₹5–12 Cr · 6–10 salespeople · 3–5 routes"
-    },
-    {
-      id: "grow",
-      price: "₹2499",
-      name: "Grow",
-      job: "Run it on numbers",
-      awake: "I can't see which salesman or which shop is actually performing",
-      fit: "₹12–25 Cr · 11–20 salespeople · 6+ routes"
     }
   ],
   recoveryOutstanding: [
