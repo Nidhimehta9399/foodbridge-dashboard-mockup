@@ -28,6 +28,9 @@ The idea was right and the presentation was not. Measured on the shipped build:
 | D18 | Order by what can be acted on today | Amount-sort put ₹7,450 on agreed terms above ₹2,860 at 88 days never rung. Three keys, each statable: **ours first** (fixable without the customer), **then never-contacted** (untried), **then oldest**; amount is only a tie-break. Stated in the list subtitle so the order is legible. |
 | D19 | No pagination | 14 rows is a worklist, not a dataset. The shared `pagination()` chrome is untouched for the five tabs that genuinely page. |
 | D20 | One action completes here | Every other action hands off to Finance / Distribution / Customer Management and can honestly only say so. **Logging a contact is this report's own state** — it writes `lastContact`, drops the row out of the never-contacted band and re-orders the list. One visible closed loop. |
+| D22 | Name the **blockage**, not the owner | "Ours to fix / Theirs to chase" did not read. Every rupee on this screen is ours, so "theirs" says the money belongs to them. The split is about *what is holding the money*, so the halves are now **"We are the blocker"** and **"Customer has not paid"**, each with the actual causes underneath ("wrong paperwork, failed deliveries, open disputes") and the action ("fix these without calling anyone"). |
+| D23 | Colour was backwards | Our own errors were emerald — green reads "healthy, nothing to do" for the one bucket that is entirely self-inflicted. Self-inflicted money is amber now; money a customer simply has not paid is neutral slate. |
+| D24 | The split filters, and that is how it teaches | Clicking a half filters the list *and* narrows the cause chips to that side. Choosing "we are the blocker" leaves exactly disputed / delivery-failed / not-acknowledged on screen, so the category explains itself from its contents instead of from a label. It is also the most useful single click on the tab. |
 | D21 | Chips scroll sideways on a phone | Wrapped they were nine stacked lines (~380px), taller than the panels they replaced. One scrolling row each ≈ 90px. |
 
 ## Result
@@ -51,6 +54,9 @@ Removed: `rcVerdict`, `rcActions`, `rcActionsFor`, `rcWhy`, `rcCauseRow`, `rcRou
 - Sort re-derived independently from `seed.json` in the browser and compared to the
   rendered DOM: **all 14 rows match**, not just the visible ones.
 - Route filter 14 → 6 shops; route + cause together → 2; both reset cleanly.
+- Split filter: "we are the blocker" → 8 of 14 · ₹14,100, cause chips narrow to the
+  three `us` causes and every chip amount recomputes; "customer has not paid" → 6 of 14;
+  clicking either again clears it.
 - Log contact: the one never-contacted shop no longer reports "never" after the click.
 
 ## Not addressed

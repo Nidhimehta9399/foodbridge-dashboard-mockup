@@ -1383,6 +1383,7 @@
   var rcCause = null;          // active cause filter (card click)
   var rcRoute = 'all';         // active route filter (concentration panel)
   var rcCustomer = null;       // active customer filter (concentration panel)
+  var rcOwnerF = null;         // 'us' | 'them' — the header split, used as a filter
   var rcOpen = [];             // expanded customer ids
 
   var RC_ASOF = new Date(S.tenant.asOf);
@@ -1412,16 +1413,26 @@
 
   // D7 — owner is derived from cause, never stored per row, so the hero
   // split cannot drift from the cards
+  /* "Ours to fix / Theirs to chase" tested badly: every rupee here is ours, so
+     "theirs" reads as if the money belongs to them. The split is about WHAT IS
+     BLOCKING the money, so the labels name the blockage instead, and the
+     sub-line names the actual causes rather than describing them abstractly.
+
+     Colour was backwards too — our own errors were emerald, which reads as
+     "healthy, nothing to do". Self-inflicted money is the amber one; money a
+     customer simply has not paid yet is the neutral one. */
   var RC_OWNER = {
     us: {
-      label: 'You', head: 'Ours to fix', bar: 'bg-emerald-500',
-      chip: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500',
-      sub: 'Nothing to negotiate — our own process is holding it'
+      label: 'Our error', head: 'We are the blocker', bar: 'bg-amber-500',
+      chip: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500',
+      why: 'Wrong paperwork, failed deliveries, open disputes',
+      todo: 'Fix these without calling anyone'
     },
     them: {
-      label: 'Customer', head: 'Theirs to pay', bar: 'bg-amber-500',
-      chip: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500',
-      sub: 'Needs terms enforced, a reminder or a collection visit'
+      label: 'Unpaid', head: 'Customer has not paid', bar: 'bg-slate-400',
+      chip: 'bg-slate-100 text-slate-700 border-slate-200', dot: 'bg-slate-400',
+      why: 'Past agreed terms, or habitually late',
+      todo: 'Needs a call, a visit or tighter terms'
     }
   };
   function rcOwner(r) { return RC_OWNER[rcCauseOf(r.cause).owner]; }
@@ -1525,12 +1536,23 @@
     var d = sp.total - prev;
     var usPct = rcPct(sp.us, sp.total);
 
-    var half = function (amt, pct, tone, head, sub) {
-      return '<div class="min-w-[8.5rem] flex-1">' +
-        '<p class="text-xs font-semibold uppercase tracking-wide ' + tone.t + '">' + head + '</p>' +
-        '<p class="mt-0.5 flex items-baseline gap-2"><span class="text-2xl font-bold tabular-nums text-slate-900">' +
-          money0(amt) + '</span><span class="text-xs text-slate-400">' + pct + '%</span></p>' +
-        '<p class="mt-0.5 text-xs text-slate-500">' + sub + '</p></div>';
+    /* Each half is a button. Filtering to "we are the blocker" is the single
+       most useful click on the tab, and it is also what teaches the split —
+       the list then shows only failed deliveries and bad paperwork, so the
+       category explains itself without a legend. */
+    var half = function (o, key, amt, pct, rows) {
+      var on = rcOwnerF === key;
+      return '<button data-rc-owner="' + key + '" class="min-w-[9.5rem] flex-1 rounded-xl border p-2.5 text-left ' +
+        'transition-colors ' + (on ? 'border-emerald-500 bg-emerald-50/40' : 'border-transparent hover:bg-slate-50') + '">' +
+        '<span class="flex items-center gap-1.5">' +
+          '<span class="h-2 w-2 shrink-0 rounded-full ' + o.dot + '"></span>' +
+          '<span class="text-xs font-semibold uppercase tracking-wide text-slate-600">' + o.head + '</span></span>' +
+        '<span class="mt-1 flex items-baseline gap-2">' +
+          '<span class="text-2xl font-bold tabular-nums text-slate-900">' + money0(amt) + '</span>' +
+          '<span class="text-xs text-slate-400">' + pct + '% · ' + rows + ' shops</span></span>' +
+        '<span class="mt-1 block text-xs leading-snug text-slate-500">' + o.why + '</span>' +
+        '<span class="mt-0.5 block text-xs font-medium leading-snug text-slate-600">' + o.todo + '</span>' +
+      '</button>';
     };
 
     return '<section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">' +
@@ -1544,10 +1566,8 @@
           (d > 0 ? '▲' : '▼') + money0(Math.abs(d)) + '</span>' : '') +
       '</div>' +
       '<div class="flex flex-wrap items-start gap-x-6 gap-y-3 sm:gap-x-8">' +
-        half(sp.us, usPct, { t: 'text-emerald-700' }, 'Ours to fix',
-             sp.usRows.length + ' shops · no customer needed') +
-        half(sp.them, 100 - usPct, { t: 'text-slate-600' }, 'Theirs to chase',
-             sp.themRows.length + ' shops · needs a conversation') +
+        half(RC_OWNER.us, 'us', sp.us, usPct, sp.usRows.length) +
+        half(RC_OWNER.them, 'them', sp.them, 100 - usPct, sp.themRows.length) +
         '<div class="ml-auto hidden text-right sm:block">' +
           '<p class="text-xs uppercase tracking-wide text-slate-400">Outstanding</p>' +
           '<p class="mt-0.5 text-lg font-semibold tabular-nums text-slate-700">' + money0(sp.total) + '</p>' +
@@ -1558,8 +1578,8 @@
       '</div>' +
       // one proportional bar — the split, readable without reading the numbers
       '<div class="mt-3 flex h-1.5 overflow-hidden rounded-full bg-slate-100">' +
-        '<div class="bg-emerald-500" style="width:' + usPct + '%"></div>' +
-        '<div class="bg-slate-400" style="width:' + (100 - usPct) + '%"></div>' +
+        '<div class="' + RC_OWNER.us.bar + '" style="width:' + usPct + '%"></div>' +
+        '<div class="' + RC_OWNER.them.bar + '" style="width:' + (100 - usPct) + '%"></div>' +
       '</div>' +
       '<p class="mt-3 border-t border-slate-100 pt-3 text-sm leading-relaxed text-slate-700">' +
         rcVerdictLine(all) + '</p>' +
@@ -1584,19 +1604,24 @@
   }
 
   function rcFilters(all) {
-    var causes = S.recoveryCauses.slice().map(function (c) {
+    var causes = S.recoveryCauses.slice().filter(function (c) {
+      return !rcOwnerF || c.owner === rcOwnerF;
+    }).map(function (c) {
       var rows = all.filter(function (r) { return r.cause === c.id; });
       return { c: c, amt: rcSum(rows), n: rows.length };
     }).filter(function (x) { return x.n; }).sort(function (a, b) { return b.amt - a.amt; });
 
-    var causeChips = rcChip(!rcCause, 'data-rc-cause', '', 'All causes', null, all.length) +
+    // count the owner-filtered set, not everything — while one side of the
+    // split is active, "all causes" means all causes ON THAT SIDE
+    var inScope = rcOwnerF ? all.filter(function (r) { return rcCauseOf(r.cause).owner === rcOwnerF; }) : all;
+    var causeChips = rcChip(!rcCause, 'data-rc-cause', '', 'All causes', null, inScope.length) +
       causes.map(function (x) {
         return rcChip(rcCause === x.c.id, 'data-rc-cause', x.c.id, x.c.label, x.amt, x.n,
                       RC_OWNER[x.c.owner].dot);
       }).join('');
 
     var routeChips = rcChip(rcRoute === 'all', 'data-rc-route', 'all', 'All routes', null, null) +
-      rcRouteStats(all).sort(function (a, b) { return b.amount - a.amount; }).map(function (st) {
+      rcRouteStats(inScope).sort(function (a, b) { return b.amount - a.amount; }).map(function (st) {
         return rcChip(rcRoute === st.route, 'data-rc-route', st.route,
                       st.short + ' · ' + st.salesman, st.amount, st.shops);
       }).join('');
@@ -1821,6 +1846,7 @@
     var q = (window.__rcSearch || '').trim().toLowerCase();
 
     var rows = all.filter(function (r) {
+      if (rcOwnerF && rcCauseOf(r.cause).owner !== rcOwnerF) return false;
       if (rcCause && r.cause !== rcCause) return false;
       if (rcRoute !== 'all' && r.route !== rcRoute) return false;
       if (rcCustomer && r.id !== rcCustomer) return false;
@@ -1830,6 +1856,7 @@
     rows = rcSort(rows);
 
     var chips = [];
+    if (rcOwnerF) chips.push({ label: RC_OWNER[rcOwnerF].head, clear: 'owner' });
     if (rcCause) chips.push({ label: rcCauseOf(rcCause).label, clear: 'cause' });
     if (rcRoute !== 'all') chips.push({ label: rcRoute, clear: 'route' });
     if (rcCustomer) chips.push({
@@ -1911,6 +1938,11 @@
       window.alert(RC_DEAD[t.dataset.rcAct]);
       return;
     }
+    if ((t = e.target.closest('[data-rc-owner]'))) {
+      rcOwnerF = rcOwnerF === t.dataset.rcOwner ? null : t.dataset.rcOwner;
+      rcCause = null;   // a cause lives inside one side of the split; keeping it would contradict
+      renderPanel(); return;
+    }
     if ((t = e.target.closest('[data-rc-cause]'))) {
       // '' is the "All causes" chip
       rcCause = !t.dataset.rcCause || rcCause === t.dataset.rcCause ? null : t.dataset.rcCause;
@@ -1926,6 +1958,7 @@
     }
     if ((t = e.target.closest('[data-rc-clear]'))) {
       var which = t.dataset.rcClear;
+      if (which === 'owner' || which === 'all') rcOwnerF = null;
       if (which === 'cause' || which === 'all') rcCause = null;
       if (which === 'route' || which === 'all') rcRoute = 'all';
       if (which === 'customer' || which === 'all') rcCustomer = null;
