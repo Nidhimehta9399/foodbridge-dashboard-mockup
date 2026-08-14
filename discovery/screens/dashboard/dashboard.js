@@ -1449,6 +1449,17 @@
       { k: 'collect', label: 'Collect payment' },
       { k: 'route', label: 'Assign to route collection' }]
   };
+  /* `contacted` is the one action this report can genuinely complete. Every
+     other one hands off to Finance / Distribution / Customer Management and can
+     only say so. This writes lastContact on the row, which drops it out of the
+     never-contacted band and re-orders the list — a visible, closed loop. */
+  function rcLogContact(id) {
+    var r = S.recoveryOutstanding.filter(function (x) { return x.id === id; })[0];
+    if (!r) return;
+    r.lastContact = S.tenant.asOf;
+    renderPanel();
+  }
+
   var RC_DEAD = {
     credit: 'Raise a credit note against these invoices.\n\nPrototype: the app opens its credit-note drawer here — that flow belongs to the Finance module (Customer Receivables).',
     qc: 'Book a quality check at this customer.\n\nPrototype: the app schedules a QC visit here — that flow belongs to the Production module.',
@@ -1460,50 +1471,12 @@
     cashonly: 'Move this customer to cash-only supply.\n\nPrototype: the app changes their credit terms here — that flow belongs to Customer Management.',
     route: 'Add this customer to a salesman collection run.\n\nPrototype: the app assigns it to a route here — that flow belongs to Distribution & Logistics.'
   };
-
-  function rcDelta(now, prev) {
-    var d = now - prev;
-    if (!d) return '<span class="text-xs font-medium text-slate-400">no change</span>';
-    var up = d > 0;
-    return '<span class="inline-flex items-center gap-0.5 text-xs font-semibold ' +
-      (up ? 'text-red-600' : 'text-emerald-600') + '" title="vs last month">' +
-      (up ? '▲' : '▼') + money0(Math.abs(d)) + '</span>';
-  }
-
-  /* ---- the four-segment ageing bar, computed from the rows it is given ---- */
-  function rcAgeBar(rows, h) {
-    var total = rcSum(rows) || 1;
-    var seg = S.recoveryAgeBuckets.map(function (b) {
-      var amt = rcSum(rows.filter(function (r) { return rcBucket(rcOldest(r)).id === b.id; }));
-      if (!amt) return '';
-      return '<div class="' + RC_BUCKET_TONE[b.id] + '" style="width:' + (amt / total * 100) + '%" ' +
-        'title="' + b.label + ' — ' + money0(amt) + '"></div>';
-    }).join('');
-    return '<div class="flex ' + (h || 'h-1.5') + ' w-full overflow-hidden rounded-full bg-slate-100">' + seg + '</div>';
-  }
   // weighted by rupees, not by row count — one big stale invoice matters
   // more than three small fresh ones
   function rcAvgAge(rows) {
     var t = rcSum(rows);
     if (!t) return 0;
     return Math.round(rows.reduce(function (a, r) { return a + rcOldest(r) * r.outstanding; }, 0) / t);
-  }
-
-  function rcAgeLegend() {
-    return '<div class="flex flex-wrap items-center gap-x-4 gap-y-1">' + S.recoveryAgeBuckets.map(function (b) {
-      return '<span class="inline-flex items-center gap-1.5 text-[11px] text-slate-500">' +
-        '<span class="h-2 w-2 rounded-sm ' + RC_BUCKET_TONE[b.id] + '"></span>' + b.label + '</span>';
-    }).join('') + '</div>';
-  }
-
-  // The reasoning band is open on desktop and closed on a phone, where it would
-  // sit between the owner and the list. null = follow the viewport; true/false =
-  // the owner has said otherwise and that sticks. Resolved at render time, not
-  // captured at load, so rotating a phone or resizing a window still lands on
-  // the right default.
-  var rcWhyOpen = null;
-  function rcWhyIsOpen() {
-    return rcWhyOpen === null ? window.innerWidth >= 1024 : rcWhyOpen;
   }
 
   /* ---- shared reductions ---- */
@@ -1533,146 +1506,129 @@
       ' but the oldest at ' + worst.avgAge + ' days. That is a discipline problem, not a cash problem.';
   }
 
-  function rcVerdict(all) {
-    var total = rcSum(all);
-    var prev = S.recoveryCauses.reduce(function (a, c) { return a + c.prevOutstanding; }, 0);
-    var d = total - prev;
-
-    return '<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">' +
-      '<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Stuck right now</p>' +
-      '<div class="mt-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">' +
-        '<span class="text-[2.5rem] font-bold leading-none tracking-tight text-slate-900 sm:text-5xl">' + money0(total) + '</span>' +
-        '<span class="text-sm text-slate-500">across ' + all.length + ' shops</span>' +
-        (d ? '<span class="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold ' +
-          (d > 0 ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700') + '">' +
-          (d > 0 ? '▲' : '▼') + money0(Math.abs(d)) + ' this month</span>' : '') +
-      '</div>' +
-      '<p class="mt-4 border-t border-slate-100 pt-4 text-base leading-relaxed text-slate-700 sm:text-lg">' +
-        rcVerdictLine(all) + '</p></section>';
-  }
-
-  /* ---- ② do these three (D13/D14) ----
-     The ranking is the product. A list of five causes asks the owner to do the
-     prioritising, which is exactly the work being outsourced. Capped at three,
-     ordered by friction rather than by size — the biggest number is rarely the
-     fastest money. */
-  function rcActionsFor(all) {
-    var stats = rcRouteStats(all);
-    if (!stats.length) return [];
-      var byAge = stats.slice().sort(function (a, b) { return b.avgAge - a.avgAge; })[0];
-      var byAmt = stats.slice().sort(function (a, b) { return b.amount - a.amount; })[0];
-      var cold = all.filter(function (r) { return !r.lastContact; })
-        .sort(function (a, b) { return rcOldest(b) - rcOldest(a); })[0];
-      var out = [{
-        title: 'Review ' + byAge.salesman + '’s book',
-        money: '<b>' + money0(byAge.amount) + '</b> on ' + esc(byAge.short),
-        effort: byAge.shops + ' shops averaging ' + byAge.avgAge + ' days — the oldest of any route',
-        act: 'route', scope: byAge.route
-      }];
-      if (byAmt.route !== byAge.route) out.push({
-        title: esc(byAmt.short) + ' holds ' + rcPct(byAmt.amount, rcSum(all)) + '% of everything',
-        money: '<b>' + money0(byAmt.amount) + '</b> on ' + esc(byAmt.salesman) + '’s round',
-        effort: byAmt.shops + ' shops · one round carrying most of the exposure',
-        act: 'route', scope: byAmt.route
-      });
-      if (cold) out.push({
-        title: cold.customer + ' has never been contacted',
-        money: '<b>' + money0(cold.outstanding) + '</b> · ' + rcOldest(cold) + ' days',
-        effort: esc(cold.salesman) + ' on ' + esc(cold.route.replace(' Route', '')) + ' · no collection attempt logged',
-        act: 'remind', scope: cold.id
-      });
-    return out.slice(0, 3);
-  }
-
-  function rcActions(all) {
-    var acts = rcActionsFor(all);
-    return '<section>' +
-      '<h3 class="mb-2.5 text-sm font-semibold uppercase tracking-wide text-slate-500">Do these three</h3>' +
-      '<ol class="space-y-2.5">' + acts.map(function (a, i) {
-        return '<li><button data-rc-act="' + esc(a.act) + '" data-rc-scope="' + esc(a.scope) + '" ' +
-          'class="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-left ' +
-          'shadow-sm transition-all hover:border-emerald-400 hover:shadow active:bg-slate-50 sm:gap-4 sm:p-5">' +
-          '<span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm ' +
-            'font-bold text-white">' + (i + 1) + '</span>' +
-          '<span class="min-w-0 flex-1">' +
-            '<span class="block text-base font-semibold leading-snug text-slate-900">' + a.title + '</span>' +
-            '<span class="mt-1 block text-sm text-slate-600">' + a.money + '</span>' +
-            '<span class="mt-0.5 block text-xs leading-snug text-slate-400">' + a.effort + '</span>' +
-          '</span>' +
-          '<span class="shrink-0 text-slate-300">' + ICON.feather('FiChevronRight', 'h-5 w-5') + '</span>' +
-          '</button></li>';
-      }).join('') + '</ol></section>';
-  }
-
-  /* ---- ③ why — the reasoning, collapsed on a phone ---- */
-  function rcCauseRow(c, all) {
-    var rows = all.filter(function (r) { return r.cause === c.id; });
-    var amt = rcSum(rows), o = RC_OWNER[c.owner], on = rcCause === c.id;
-    return '<button data-rc-cause="' + c.id + '" aria-pressed="' + on + '" ' +
-      'class="flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors ' +
-      (on ? 'border-emerald-500 bg-emerald-50/50' : 'border-slate-200 bg-white hover:border-slate-300') + '">' +
-      '<span class="h-2 w-2 shrink-0 rounded-full ' + o.dot + '"></span>' +
-      '<span class="min-w-0 flex-1">' +
-        '<span class="block truncate text-sm font-medium text-slate-800">' + esc(c.label) + '</span>' +
-        '<span class="mt-0.5 block text-xs text-slate-400">' + o.label + ' · ' + rows.length +
-          ' shops · avg ' + rcAvgAge(rows) + 'd</span>' +
-      '</span>' +
-      '<span class="hidden w-24 shrink-0 min-[420px]:block">' + rcAgeBar(rows) + '</span>' +
-      '<span class="shrink-0 text-sm font-semibold tabular-nums text-slate-900">' + money0(amt) + '</span>' +
-      '</button>';
-  }
-
-  function rcRouteRow(st, max, all) {
-    var on = rcRoute === st.route;
-    return '<button data-rc-route="' + esc(st.route) + '" aria-pressed="' + on + '" ' +
-      'class="flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors ' +
-      (on ? 'border-emerald-500 bg-emerald-50/50' : 'border-slate-200 bg-white hover:border-slate-300') + '">' +
-      '<span class="min-w-0 flex-1">' +
-        '<span class="block truncate text-sm font-medium text-slate-800">' + esc(st.short) +
-          ' <span class="font-normal text-slate-400">· ' + esc(st.salesman) + '</span></span>' +
-        '<span class="mt-1 block h-1.5 overflow-hidden rounded-full bg-slate-100">' +
-          '<span class="block h-full rounded-full bg-emerald-500" style="width:' + (st.amount / max * 100) + '%"></span></span>' +
-        '<span class="mt-1 block text-xs text-slate-400">' + st.shops + ' shops · avg ' +
-          '<span class="' + (st.avgAge > 60 ? 'font-semibold text-red-600' : '') + '">' + st.avgAge + 'd</span>' +
-          ' · ' + rcPct(st.amount, rcSum(all)) + '% of total</span>' +
-      '</span>' +
-      '<span class="shrink-0 text-sm font-semibold tabular-nums text-slate-900">' + money0(st.amount) + '</span>' +
-      '</button>';
-  }
-
-  function rcWhy(all) {
-    var stats = rcRouteStats(all);
-    var max = stats.reduce(function (m, s) { return Math.max(m, s.amount); }, 0) || 1;
-    var routes = '<div class="space-y-2">' + stats.slice()
-      .sort(function (a, b) { return b.avgAge - a.avgAge; })
-      .map(function (s) { return rcRouteRow(s, max, all); }).join('') + '</div>';
-
-    var causes = '<div class="space-y-2">' + S.recoveryCauses.slice()
-      .sort(function (a, b) { return rcSum(all.filter(function (r) { return r.cause === b.id; })) -
-                                     rcSum(all.filter(function (r) { return r.cause === a.id; })); })
-      .map(function (c) { return rcCauseRow(c, all); }).join('') + '</div>';
-
-    var body = '<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">' +
-      '<div><p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">By route · oldest first</p>' + routes + '</div>' +
-      '<div><div class="mb-2 flex flex-wrap items-center justify-between gap-2">' +
-        '<p class="text-xs font-semibold uppercase tracking-wide text-slate-400">By cause · tap to filter the list</p>' +
-        '<span class="hidden sm:block">' + rcAgeLegend() + '</span></div>' + causes + '</div>' +
-      '</div>';
-
-    return '<section class="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 sm:p-5">' +
-      '<button data-rc-why class="flex min-h-[44px] w-full items-center justify-between gap-3 text-left" ' +
-        'aria-expanded="' + rcWhyIsOpen() + '">' +
-        '<span><span class="block text-sm font-semibold text-slate-800">Why it is stuck</span>' +
-          '<span class="block text-xs text-slate-500">' +
-          'Which round and which cause is holding it' +
-          '</span></span>' +
-        '<span class="shrink-0 text-slate-400">' + ICON.feather(rcWhyIsOpen() ? 'FiChevronUp' : 'FiChevronDown', 'h-5 w-5') + '</span>' +
-      '</button>' +
-      (rcWhyIsOpen() ? '<div class="mt-4">' + body + '</div>' : '') +
-      '</section>';
-  }
-
   /* ---- ④ the list ---- */
+
+  /* ---- ① the header — the split, then one sentence (D16) ----
+     The previous hero was a ₹32,400 counter. That number is already a KPI tile
+     and the Finance module's headline; repeating it bought a screen of height
+     and told the owner nothing they could act on. What only THIS report knows
+     is how much of it we caused ourselves — so that is the headline now. */
+  function rcSplit(all) {
+    var us = all.filter(function (r) { return rcCauseOf(r.cause).owner === 'us'; });
+    var them = all.filter(function (r) { return rcCauseOf(r.cause).owner === 'them'; });
+    return { us: rcSum(us), them: rcSum(them), usRows: us, themRows: them, total: rcSum(all) };
+  }
+
+  function rcHeader(all) {
+    var sp = rcSplit(all);
+    var prev = S.recoveryCauses.reduce(function (a, c) { return a + c.prevOutstanding; }, 0);
+    var d = sp.total - prev;
+    var usPct = rcPct(sp.us, sp.total);
+
+    var half = function (amt, pct, tone, head, sub) {
+      return '<div class="min-w-[8.5rem] flex-1">' +
+        '<p class="text-xs font-semibold uppercase tracking-wide ' + tone.t + '">' + head + '</p>' +
+        '<p class="mt-0.5 flex items-baseline gap-2"><span class="text-2xl font-bold tabular-nums text-slate-900">' +
+          money0(amt) + '</span><span class="text-xs text-slate-400">' + pct + '%</span></p>' +
+        '<p class="mt-0.5 text-xs text-slate-500">' + sub + '</p></div>';
+    };
+
+    return '<section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">' +
+      // Total is context, not the headline, so on a phone it sits on its own
+      // line above the split rather than fighting it for width three-up.
+      '<div class="mb-2 flex items-baseline gap-2 sm:hidden">' +
+        '<span class="text-xs uppercase tracking-wide text-slate-400">Outstanding</span>' +
+        '<span class="text-sm font-semibold tabular-nums text-slate-700">' + money0(sp.total) + '</span>' +
+        (d ? '<span class="rounded-full px-1.5 py-0.5 text-xs font-semibold ' +
+          (d > 0 ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700') + '">' +
+          (d > 0 ? '▲' : '▼') + money0(Math.abs(d)) + '</span>' : '') +
+      '</div>' +
+      '<div class="flex flex-wrap items-start gap-x-6 gap-y-3 sm:gap-x-8">' +
+        half(sp.us, usPct, { t: 'text-emerald-700' }, 'Ours to fix',
+             sp.usRows.length + ' shops · no customer needed') +
+        half(sp.them, 100 - usPct, { t: 'text-slate-600' }, 'Theirs to chase',
+             sp.themRows.length + ' shops · needs a conversation') +
+        '<div class="ml-auto hidden text-right sm:block">' +
+          '<p class="text-xs uppercase tracking-wide text-slate-400">Outstanding</p>' +
+          '<p class="mt-0.5 text-lg font-semibold tabular-nums text-slate-700">' + money0(sp.total) + '</p>' +
+          (d ? '<span class="mt-0.5 inline-block rounded-full px-2 py-0.5 text-xs font-semibold ' +
+            (d > 0 ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700') + '">' +
+            (d > 0 ? '▲' : '▼') + money0(Math.abs(d)) + '</span>' : '') +
+        '</div>' +
+      '</div>' +
+      // one proportional bar — the split, readable without reading the numbers
+      '<div class="mt-3 flex h-1.5 overflow-hidden rounded-full bg-slate-100">' +
+        '<div class="bg-emerald-500" style="width:' + usPct + '%"></div>' +
+        '<div class="bg-slate-400" style="width:' + (100 - usPct) + '%"></div>' +
+      '</div>' +
+      '<p class="mt-3 border-t border-slate-100 pt-3 text-sm leading-relaxed text-slate-700">' +
+        rcVerdictLine(all) + '</p>' +
+    '</section>';
+  }
+
+  /* ---- ② filters — the breakdown IS the filter (D17) ----
+     Cause and route used to be two read-only panels stacked above the list,
+     re-stating the same 14 rows in a different shape and costing ~500px. They
+     are chips now: same breakdown, one row each, and every one of them acts. */
+  function rcChip(active, attr, val, label, amount, count, dot) {
+    return '<button ' + attr + '="' + esc(val) + '" class="inline-flex min-h-[36px] items-center gap-1.5 ' +
+      'shrink-0 whitespace-nowrap rounded-full border px-3 text-xs font-medium transition-colors ' +
+      (active ? 'border-emerald-500 bg-emerald-50 text-emerald-800'
+              : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50') + '">' +
+      (dot ? '<span class="h-1.5 w-1.5 shrink-0 rounded-full ' + dot + '"></span>' : '') +
+      esc(label) +
+      (amount != null ? '<span class="tabular-nums ' + (active ? 'text-emerald-700' : 'text-slate-400') + '">' +
+        money0(amount) + '</span>' : '') +
+      (count != null ? '<span class="' + (active ? 'text-emerald-600' : 'text-slate-300') + '">·&nbsp;' + count + '</span>' : '') +
+    '</button>';
+  }
+
+  function rcFilters(all) {
+    var causes = S.recoveryCauses.slice().map(function (c) {
+      var rows = all.filter(function (r) { return r.cause === c.id; });
+      return { c: c, amt: rcSum(rows), n: rows.length };
+    }).filter(function (x) { return x.n; }).sort(function (a, b) { return b.amt - a.amt; });
+
+    var causeChips = rcChip(!rcCause, 'data-rc-cause', '', 'All causes', null, all.length) +
+      causes.map(function (x) {
+        return rcChip(rcCause === x.c.id, 'data-rc-cause', x.c.id, x.c.label, x.amt, x.n,
+                      RC_OWNER[x.c.owner].dot);
+      }).join('');
+
+    var routeChips = rcChip(rcRoute === 'all', 'data-rc-route', 'all', 'All routes', null, null) +
+      rcRouteStats(all).sort(function (a, b) { return b.amount - a.amount; }).map(function (st) {
+        return rcChip(rcRoute === st.route, 'data-rc-route', st.route,
+                      st.short + ' · ' + st.salesman, st.amount, st.shops);
+      }).join('');
+
+    // On a phone these wrapped to nine stacked lines (~380px) — taller than the
+    // panels they replaced. One scrolling row each keeps the whole breakdown
+    // reachable in ~90px; they still wrap normally once there is width for it.
+    var row = 'flex gap-1.5 overflow-x-auto rc-nobar [scrollbar-width:none] sm:flex-wrap sm:overflow-visible';
+    return '<section class="space-y-2">' +
+      '<div class="' + row + '">' + causeChips + '</div>' +
+      '<div class="' + row + '">' + routeChips + '</div>' +
+    '</section>';
+  }
+
+  /* ---- ③ order — by what can be acted on today (D18) ----
+     Sorting by amount put a ₹7,450 shop on agreed credit terms above a ₹2,860
+     one at 88 days that nobody has ever rung. The second is the winnable one.
+     Three keys, each statable in a sentence, so the order is explainable:
+       1. our own errors first  — fixable without the customer at all
+       2. then never contacted  — untried, so effort still changes the outcome
+       3. then oldest           — and amount only as a tie-break */
+  function rcRank(r) {
+    return [rcCauseOf(r.cause).owner === 'us' ? 0 : 1, r.lastContact ? 1 : 0, -rcOldest(r), -r.outstanding];
+  }
+  function rcSort(rows) {
+    return rows.slice().sort(function (a, b) {
+      var x = rcRank(a), y = rcRank(b);
+      for (var i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] - y[i];
+      return 0;
+    });
+  }
+
   function rcInvoiceLines(r) {
     var rowsHtml = r.invoices.slice().sort(function (a, b) { return rcAge(b.date) - rcAge(a.date); })
       .map(function (i) {
@@ -1718,12 +1674,18 @@
     });
     return '<div class="grid gap-2 grid-cols-1 min-[380px]:grid-cols-2 sm:flex sm:flex-wrap">' +
       acts.map(function (a, i) {
-        return '<button data-rc-act="' + a.k + '" data-rc-scope="' + esc(r.id) + '" ' +
+        return '<button data-rc-act="' + a.k + '" ' +
           'class="min-h-[44px] rounded-lg px-3 text-sm font-semibold transition-colors ' +
           (i === 0 ? 'bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800'
                    : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50') + '">' +
           esc(a.label) + '</button>';
-      }).join('') + '</div>';
+      }).join('') +
+      // the one that actually completes here — see rcLogContact
+      '<button data-rc-contact="' + esc(r.id) + '" ' +
+        'class="min-h-[44px] rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold ' +
+        'text-slate-700 transition-colors hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700">' +
+        (r.lastContact ? 'Log another contact' : 'Log first contact') + '</button>' +
+    '</div>';
   }
 
   function rcWhyStuck(r) {
@@ -1838,7 +1800,7 @@
         '<td class="' + TD + '"><p class="text-sm text-slate-700">' + esc(r.route.replace(' Route', '')) + '</p>' +
           '<p class="mt-0.5 text-xs text-slate-400">' + esc(r.salesman) + ' · last contact ' +
           (r.lastContact ? rcAge(r.lastContact) + 'd ago' : 'never') + '</p></td>' +
-        '<td class="' + TD + ' text-right"><button data-rc-act="' + prim.k + '" data-rc-scope="' + esc(r.id) + '" ' +
+        '<td class="' + TD + ' text-right"><button data-rc-act="' + prim.k + '" ' +
           'class="min-h-[44px] whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold ' +
           'text-slate-700 transition-colors hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700">' +
           esc(prim.label) + '</button></td></tr>' +
@@ -1864,7 +1826,8 @@
       if (rcCustomer && r.id !== rcCustomer) return false;
       if (q && (r.customer + ' ' + r.phone + ' ' + r.salesman).toLowerCase().indexOf(q) === -1) return false;
       return true;
-    }).sort(function (a, b) { return b.outstanding - a.outstanding; });
+    });
+    rows = rcSort(rows);
 
     var chips = [];
     if (rcCause) chips.push({ label: rcCauseOf(rcCause).label, clear: 'cause' });
@@ -1893,30 +1856,23 @@
         '<div><h3 class="text-base font-semibold text-slate-800">' +
           'Who to recover it from</h3>' +
           '<p class="mt-0.5 text-xs text-slate-500">' + rows.length + ' of ' + all.length + ' shops · ' +
-            money0(rcSum(rows)) + '</p></div>' +
+            money0(rcSum(rows)) + ' · ours first, then never-contacted, then oldest</p></div>' +
         search +
       '</div>' + (chipRow ? '<div class="px-4 pt-3 sm:px-6">' + chipRow + '</div>' : '');
 
-    // The phone list shows every filtered row. Paging a 14-row list on a phone is
-    // friction, and the shared pagination() control — copied class-for-class from
-    // the app's CustomPagination.jsx, and used by the other five tabs — has 28px
-    // targets that fail a touch check. Scrolling is the phone-native answer, and
-    // it leaves that shared chrome untouched for the tabs built on it.
-    var paged = rows.length > PAGE_SIZE ? pageSlice(rows, 'outstanding_recovery') : rows;
-    var pager = rows.length > PAGE_SIZE
-      ? '<div class="' + RC_BP.table + '">' + pagination('outstanding_recovery', rows.length) + '</div>'
-      : '';
+    // No pagination on either breakpoint. This is a 14-row worklist, not a
+    // dataset: paging it hid a third of the debtors behind a control and cost a
+    // second scroll to reach them. The shared pagination() chrome stays untouched
+    // for the five tabs that genuinely page.
 
-    return '<div class="space-y-4 pb-4 sm:space-y-5">' +
-      rcVerdict(all) +
-      rcActions(all) +
-      rcWhy(all) +
+    return '<div class="space-y-3 pb-4">' +
+      rcHeader(all) +
+      rcFilters(all) +
       '<section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">' +
         listHead +
         '<div class="p-4 ' + RC_BP.cards + '">' + rcCards(rows, all) + '</div>' +
         '<div class="overflow-x-auto ' + RC_BP.table + '"><table class="w-full border-separate border-spacing-0 text-sm">' +
-          rcTableRows(paged, all) + '</table></div>' +
-        pager +
+          rcTableRows(rows, all) + '</table></div>' +
       '</section>' +
     '</div>';
   }
@@ -1950,13 +1906,14 @@
        Actions are tested first: they sit inside cause cards and inside
        clickable table rows, so otherwise the click would also toggle the
        filter or expand the row underneath them. */
-    if (e.target.closest('[data-rc-why]')) { rcWhyOpen = !rcWhyIsOpen(); renderPanel(); return; }
+    if ((t = e.target.closest('[data-rc-contact]'))) { rcLogContact(t.dataset.rcContact); return; }
     if ((t = e.target.closest('[data-rc-act]'))) {
       window.alert(RC_DEAD[t.dataset.rcAct]);
       return;
     }
     if ((t = e.target.closest('[data-rc-cause]'))) {
-      rcCause = rcCause === t.dataset.rcCause ? null : t.dataset.rcCause;
+      // '' is the "All causes" chip
+      rcCause = !t.dataset.rcCause || rcCause === t.dataset.rcCause ? null : t.dataset.rcCause;
       page.outstanding_recovery = 1; renderPanel(); return;
     }
     if ((t = e.target.closest('[data-rc-customer]'))) {
