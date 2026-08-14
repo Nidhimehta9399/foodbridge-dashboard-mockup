@@ -1453,36 +1453,10 @@
      step, so no row gets a generic "View". The first is the primary and
      shows on the collapsed row. Every one is a deliberate dead end — the
      flows themselves belong to Finance / Logistics. */
-  var RC_ACTIONS = {
-    disputed: [
-      { k: 'credit', label: 'Raise credit note' },
-      { k: 'qc', label: 'Book a QC visit' }],
-    delivery_failed: [
-      { k: 'cancel', label: 'Cancel invoice' },
-      { k: 'redeliver', label: 'Schedule redelivery' }],
-    not_acknowledged: [
-      { k: 'reissue', label: 'Re-issue invoice' },
-      { k: 'remind', label: 'Remind' }],
-    terms_exceeded: [
-      { k: 'collect', label: 'Collect payment' },
-      { k: 'cashonly', label: 'Put on cash-only' }],
-    unclassified: [
-      { k: 'classify', label: 'Set the cause' },
-      { k: 'remind', label: 'Remind' }],
-    habitual_late: [
-      { k: 'collect', label: 'Collect payment' },
-      { k: 'route', label: 'Assign to route collection' }]
-  };
   /* `contacted` is the one action this report can genuinely complete. Every
      other one hands off to Finance / Distribution / Customer Management and can
      only say so. This writes lastContact on the row, which drops it out of the
      never-contacted band and re-orders the list — a visible, closed loop. */
-  function rcLogContact(id) {
-    var r = S.recoveryOutstanding.filter(function (x) { return x.id === id; })[0];
-    if (!r) return;
-    r.lastContact = S.tenant.asOf;
-    renderPanel();
-  }
 
   /* Classifying is the second action this report can finish by itself. An
      unexplained row is a question addressed to the office, and answering it is
@@ -1498,8 +1472,16 @@
     renderPanel();
   }
 
+  /* The one control left on a row. It is not an action handed to another
+     module — an unexplained row is a question addressed to the office, and
+     recording the answer is this report's own job. */
   function rcCausePicker(r) {
-    if (rcClassifying !== r.id) return '';
+    if (r.cause !== 'unclassified') return '';
+    if (rcClassifying !== r.id) {
+      return '<button data-rc-act="classify" data-rc-for="' + esc(r.id) + '" ' +
+        'class="min-h-[44px] w-full rounded-lg border border-violet-200 bg-violet-50 px-3 text-sm ' +
+        'font-semibold text-violet-700 transition-colors hover:bg-violet-100 sm:w-auto">Set the cause</button>';
+    }
     return '<div class="mt-2 rounded-lg border border-violet-200 bg-violet-50/60 p-2.5">' +
       '<p class="text-xs font-semibold uppercase tracking-wide text-violet-700">What is actually holding it?</p>' +
       '<div class="mt-2 flex flex-wrap gap-1.5">' +
@@ -1511,17 +1493,6 @@
       '</div></div>';
   }
 
-  var RC_DEAD = {
-    credit: 'Raise a credit note against these invoices.\n\nPrototype: the app opens its credit-note drawer here — that flow belongs to the Finance module (Customer Receivables).',
-    qc: 'Book a quality check at this customer.\n\nPrototype: the app schedules a QC visit here — that flow belongs to the Production module.',
-    cancel: 'Cancel the invoice raised against a failed delivery.\n\nPrototype: the app voids the invoice here — that flow belongs to the Finance module.',
-    redeliver: 'Schedule a redelivery on the next run.\n\nPrototype: the app adds a stop here — that flow belongs to Distribution & Logistics.',
-    reissue: 'Re-issue the invoice with corrected GST / PO details.\n\nPrototype: the app regenerates the document here — that flow belongs to the Finance module.',
-    remind: 'Reminder queued.\n\nPrototype: the app sends it through its WhatsApp provider — the Finance module owns the batch reminder flow.',
-    collect: 'Record a payment against this customer.\n\nPrototype: the app opens its Collect Payment drawer here — that flow belongs to the Finance module (Customer Receivables).',
-    cashonly: 'Move this customer to cash-only supply.\n\nPrototype: the app changes their credit terms here — that flow belongs to Customer Management.',
-    route: 'Add this customer to a salesman collection run.\n\nPrototype: the app assigns it to a route here — that flow belongs to Distribution & Logistics.'
-  };
   // weighted by rupees, not by row count — one big stale invoice matters
   // more than three small fresh ones
   function rcAvgAge(rows) {
@@ -1725,25 +1696,6 @@
 
   /* Actions live in the expansion on every size. Single column below 380px,
      where two side-by-side buttons each wrap to three lines. */
-  function rcRowActions(r) {
-    var acts = RC_ACTIONS[r.cause].concat([{ k: 'remind', label: 'Remind' }]).filter(function (a, i, arr) {
-      return arr.map(function (x) { return x.k; }).indexOf(a.k) === i;
-    });
-    return '<div class="grid gap-2 grid-cols-1 min-[380px]:grid-cols-2 sm:flex sm:flex-wrap">' +
-      acts.map(function (a, i) {
-        return '<button data-rc-act="' + a.k + '" data-rc-for="' + esc(r.id) + '" ' +
-          'class="min-h-[44px] rounded-lg px-3 text-sm font-semibold transition-colors ' +
-          (i === 0 ? 'bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800'
-                   : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50') + '">' +
-          esc(a.label) + '</button>';
-      }).join('') +
-      // the one that actually completes here — see rcLogContact
-      '<button data-rc-contact="' + esc(r.id) + '" ' +
-        'class="min-h-[44px] rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold ' +
-        'text-slate-700 transition-colors hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700">' +
-        (r.lastContact ? 'Log another contact' : 'Log first contact') + '</button>' +
-    '</div>' + rcCausePicker(r);
-  }
 
   function rcWhyStuck(r) {
     return '<div class="rounded-lg bg-slate-50 p-3">' +
@@ -1813,7 +1765,7 @@
 
       var detail = open
         ? '<div class="space-y-3 border-t border-slate-100 bg-slate-50/60 p-3.5">' +
-            rcInvoiceLines(r) + rcWhyStuck(r) + rcRowActions(r) + '</div>'
+            rcInvoiceLines(r) + rcWhyStuck(r) + rcCausePicker(r) + '</div>'
         : '';
 
       return '<li class="overflow-hidden rounded-xl border border-l-4 border-slate-200 ' +
@@ -1828,7 +1780,7 @@
     // Cause rides under the shop name rather than taking a column of its own:
     // as a sixth column it pushed the table to 1068px, which does not fit beside
     // the module's 256px sidebar and was being clipped, not scrolled.
-    var cols = ['Shop', 'Owes', 'Oldest', 'Route / Salesman', ''];
+    var cols = ['Shop', 'Owes', 'Oldest', 'Route / Salesman'];
     var span = cols.length;
 
     var head = '<thead><tr class="bg-slate-50">' + cols.map(function (c, i) {
@@ -1838,7 +1790,6 @@
     var body = '<tbody>' + (rows.length ? rows.map(function (r) {
       var c = rcCauseOf(r.cause), o = RC_OWNER[c.owner], age = rcOldest(r), b = rcBucket(age);
       var open = rcOpen.indexOf(r.id) !== -1;
-      var prim = RC_ACTIONS[r.cause][0];
       var TD = 'px-4 py-4 lg:px-6';
       return '<tr data-rc-row="' + esc(r.id) + '" class="cursor-pointer border-b border-slate-100 border-l-2 ' +
           o.bar.replace('bg-', 'border-l-') + ' transition-colors ' + (open ? 'bg-slate-50' : 'hover:bg-slate-50/60') + '">' +
@@ -1857,14 +1808,11 @@
         '<td class="' + TD + '"><p class="text-sm text-slate-700">' + esc(r.route.replace(' Route', '')) + '</p>' +
           '<p class="mt-0.5 text-xs text-slate-400">' + esc(r.salesman) + ' · last contact ' +
           (r.lastContact ? rcAge(r.lastContact) + 'd ago' : 'never') + '</p></td>' +
-        '<td class="' + TD + ' text-right"><button data-rc-act="' + prim.k + '" data-rc-for="' + esc(r.id) + '" ' +
-          'class="min-h-[44px] whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold ' +
-          'text-slate-700 transition-colors hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700">' +
-          esc(prim.label) + '</button></td></tr>' +
+        '</tr>' +
         (open ? '<tr class="bg-slate-50/70"><td colspan="' + span + '" class="px-4 py-5 lg:px-6">' +
           '<div class="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">' +
             '<div>' + rcInvoiceLines(r) + '</div>' +
-            '<div class="space-y-3">' + rcWhyStuck(r) + rcRowActions(r) + '</div>' +
+            '<div class="space-y-3">' + rcWhyStuck(r) + rcCausePicker(r) + '</div>' +
           '</div></td></tr>' : '');
     }).join('')
       : '<tr><td colspan="' + span + '" class="px-6 py-12 text-center text-sm text-slate-400">' +
@@ -1969,11 +1917,6 @@
     if ((t = e.target.closest('[data-rc-act="classify"]'))) {
       rcClassifying = rcClassifying === t.dataset.rcFor ? null : t.dataset.rcFor;
       renderPanel(); return;
-    }
-    if ((t = e.target.closest('[data-rc-contact]'))) { rcLogContact(t.dataset.rcContact); return; }
-    if ((t = e.target.closest('[data-rc-act]'))) {
-      window.alert(RC_DEAD[t.dataset.rcAct]);
-      return;
     }
     if ((t = e.target.closest('[data-rc-owner]'))) {
       rcOwnerF = rcOwnerF === t.dataset.rcOwner ? null : t.dataset.rcOwner;
