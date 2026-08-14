@@ -38,3 +38,4 @@ Standing rules are in **[Addendum 001 — Working Rules](./addendum-001-working-
 
 - [Addendum 001 — Working Rules](./addendum-001-working-rules.md) — standing rules for how we work in discovery (addendum-first, table summaries, iteration-as-version, gradual context build-up)
 - [Addendum 002 — Outstanding Recovery tab](./addendum-002-outstanding-recovery-tab.md) — a sixth report tab that groups receivables by *cause* rather than by debtor, so the owner can act on the underlying business area; bootstraps this `discovery/` tree
+- [Addendum 003 — Outstanding Recovery: glanceable, and cut to the tier](./addendum-003-recovery-glanceable-by-tier.md) — reorders the tab decision-first (verdict → three ranked actions → reasoning → list), gates its depth to the ₹299 / ₹999 / ₹2499 personas, and rebuilds it mobile-first
