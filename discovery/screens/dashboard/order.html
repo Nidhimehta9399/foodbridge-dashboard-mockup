@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<!--
+  DISCOVERY SCREEN — "Order" (detail)
+  ---------------------------------------------------------------------
+  Destination of the eye button in Recent Orders. The app routes to
+    /platform/order/<invoice>/<status>
+  A file:// prototype cannot use path segments, so the same two values
+  travel as a query string:
+    order.html?order=<invoice>&status=<status>
+
+  SCOPE: exists so the flow is walkable and the transition is real. The
+  body reuses the Details/Items panes already matched against
+  OrderFulfillmentMetadata.jsx, but the page as a whole has NOT been
+  parity-checked against the app's order page (addendum-003 S9). The
+  chrome IS the app's, via shell.js.
+-->
+<html lang="en" class="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Order — Murli (discovery)</title>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>
+  tailwind.config = { theme: { extend: { fontFamily: { sans: ['system-ui', 'sans-serif', 'Arial', 'Helvetica'] } } } };
+</script>
+<style>
+  html, body { font-family: system-ui, sans-serif, Arial, Helvetica; }
+  [hidden] { display: none !important; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+</style>
+</head>
+<body class="antialiased">
+<div id="app"></div>
+
+<script src="seed.inline.js"></script>
+<script src="icons.js"></script>
+<script src="invoice.js"></script>
+<script src="shell.js"></script>
+<script>
+(function () {
+  'use strict';
+  var S = window.SEED, I = window.ICON;
+
+  function qs(k) {
+    var m = new RegExp('[?&]' + k + '=([^&]*)').exec(window.location.search);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+  function money(n) {
+    return '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function fmtDate(iso) { var p = String(iso).split('-'); return Number(p[2]) + ' ' + MONTHS[Number(p[1]) - 1] + ' ' + p[0]; }
+
+  var id = qs('order');
+  var o = S.orders.filter(function (x) { return x.id === id; })[0];
+
+  var content = window.SHELL.render({
+    title: 'Order',
+    icon: 'ShoppingCart',
+    active: 'Order',
+    back: 'dashboard.html'
+  });
+
+  if (!o) {
+    content.innerHTML = '<div class="rounded-xl border border-slate-200 bg-white p-8 text-center">' +
+      '<p class="text-sm text-slate-600">No order <b>' + esc(id || '(none)') + '</b> in the seed.</p>' +
+      '<a href="dashboard.html" class="inline-block mt-3 text-sm text-emerald-600 underline">Back to dashboard</a></div>';
+    return;
+  }
+
+  var display = o.status === 'Inprogress' ? 'InProgress' : o.status;
+  var badge = o.status === 'Cancelled' ? 'bg-red-50 text-red-700'
+    : o.status === 'Delivered' ? 'bg-emerald-50 text-emerald-700'
+    : o.status === 'Dispatched' ? 'bg-orange-50 text-orange-700' : 'bg-blue-50 text-blue-700';
+
+  // OrderFulfillmentMetadata.jsx:356-396 — the same two-column Details grid
+  function field(label, value, extra) {
+    return '<div' + (extra ? ' class="' + extra + '"' : '') + '>' +
+      '<p class="text-xs text-slate-500 mb-1">' + label + '</p>' + value + '</div>';
+  }
+  var val = 'text-sm font-medium text-slate-900';
+
+  content.innerHTML =
+    '<div class="rounded-xl border border-slate-200 bg-white shadow-sm p-4 sm:p-6 mb-4">' +
+      '<div class="flex flex-wrap items-start justify-between gap-3 mb-5">' +
+        '<div><p class="text-xs text-slate-500 mb-1">Order Number</p>' +
+          '<p class="text-lg font-mono font-semibold text-slate-900">' + esc(o.id) + '</p></div>' +
+        '<div class="text-right">' +
+          '<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ' + badge + '">' + esc(display) + '</span>' +
+          (o.paymentStatus ? '<p><span class="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium leading-none bg-gray-100 text-gray-500">' +
+            esc(o.paymentStatus) + '</span></p>' : '') +
+          '<p class="text-lg font-semibold text-slate-900 mt-2">' + money(o.amount) + '</p></div>' +
+      '</div>' +
+      '<div class="grid grid-cols-2 gap-4">' +
+        field('Customer Name', '<p class="' + val + '">' + esc(o.customer.name || 'N/A') + '</p>') +
+        field('Phone', '<p class="' + val + '">' + esc(o.customer.phone || 'N/A') + '</p>') +
+        field('Email', '<p class="' + val + ' break-all">' + esc(o.customer.email || 'N/A') + '</p>', 'col-span-2 sm:col-span-1') +
+        field('Order Date', '<p class="' + val + '">' + fmtDate(o.date) + ', ' + esc(o.time) + '</p>', 'col-span-2 sm:col-span-1') +
+      '</div></div>' +
+
+    '<div class="rounded-xl border border-slate-200 bg-white shadow-sm p-4 sm:p-6 mb-4">' +
+      '<h2 class="text-base font-semibold text-slate-800 mb-3">Items (' + o.items.length + ')</h2>' +
+      '<div class="space-y-2">' + o.items.map(function (it) {
+        return '<div class="border border-slate-200 rounded p-2 hover:bg-slate-50 transition-colors">' +
+          '<div class="flex items-center justify-between gap-3">' +
+            '<p class="text-sm font-medium text-slate-800">' + esc(it.name) + '</p>' +
+            '<p class="text-sm font-semibold text-slate-900">' + money(it.amount) + '</p></div>' +
+          '<p class="text-xs text-slate-500 mt-0.5">' + it.qty + ' ' + esc(it.unit) + ' × ' + money(it.rate) + '</p></div>';
+      }).join('') + '</div>' +
+      '<div class="flex items-center justify-between border-t border-slate-200 mt-3 pt-3">' +
+        '<span class="text-sm font-semibold text-slate-700">Order total</span>' +
+        '<span class="text-sm font-bold text-slate-900">' + money(o.amount) + '</span></div>' +
+    '</div>' +
+
+    '<div class="rounded-xl border border-slate-200 bg-white shadow-sm p-4 sm:p-6">' +
+      '<h2 class="text-base font-semibold text-slate-800 mb-3">Actions</h2>' +
+      '<div class="flex flex-wrap gap-2">' +
+        '<button data-a4 class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">' +
+          I.feather('FiFileText', 'w-4 h-4') + 'A4 Print</button>' +
+        '<button data-thermal class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">' +
+          I.feather('FiPrinter', 'w-4 h-4') + 'Thermal Print</button>' +
+        '<a href="order-timeline.html?order=' + encodeURIComponent(o.id) + '&status=' + encodeURIComponent(o.status) + '" ' +
+          'class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-sm text-slate-700 hover:bg-slate-50">' +
+          I.feather('FiClock', 'w-4 h-4') + 'View timeline</a>' +
+        '<a href="dashboard.html" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-sm text-slate-700 hover:bg-slate-50">' +
+          I.feather('FiChevronLeft', 'w-4 h-4') + 'Back to dashboard</a>' +
+      '</div>' +
+      '<p class="text-xs text-slate-500 mt-4">The dashboard cannot change an order\'s status ' +
+        '(<code>isOrderEditable={false}</code>); editing lives on the app\'s Orders page, which this ' +
+        'iteration does not cover.</p>' +
+    '</div>';
+
+  content.addEventListener('click', function (e) {
+    if (e.target.closest('[data-a4]')) window.INVOICE.a4(o);
+    else if (e.target.closest('[data-thermal]')) window.INVOICE.thermal(o);
+  });
+})();
+</script>
+</body>
+</html>
