@@ -32,6 +32,15 @@ acts on a business area rather than working a debtor list.
 - **No actions.** The tab reports; executing a fix belongs to the module that owns the
   record. The row detail is evidence: invoices, ages, and why it is stuck.
 
+## Fixed at freeze
+
+The tab strip and the per-tab filters shared one row. Five tabs fitted; six did not —
+889px of tabs and 412px of filters cannot share a 1034px line. **Outstanding Recovery was
+painted over by the Product Sales selects: invisible and unclickable on desktop.** Caught
+by looking at the released page rather than trusting the DOM, which reported all six tabs
+present the whole time. The row now wraps the filters onto their own line when they do not
+fit, so every tab stays visible; below `lg` the strip scrolls as before.
+
 ## Data honesty
 
 `cause`, all day counts, `route` / `salesman` on a receivable and `lastContact` are

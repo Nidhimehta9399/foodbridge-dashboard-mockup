@@ -254,8 +254,19 @@
           <div class="mb-8">
 
             <!-- tab strip + per-tab filters -->
-            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-5">
-              <div class="overflow-x-auto thin-scrollbar">
+            <!-- lg:flex-wrap: six tabs need 889px and the per-tab filters 412px, which
+                 cannot share a 1034px line. Without wrapping, one of them loses — the
+                 sixth tab was first painted over by the selects, then scrolled out of
+                 sight once the wrapper could shrink. Wrapping drops the filters onto
+                 their own line only when they do not fit, so every tab stays visible. -->
+            <div class="flex flex-col lg:flex-row lg:flex-wrap lg:items-center lg:justify-between gap-4 mb-5">
+              <!-- min-w-0 is load-bearing: a flex item defaults to min-width:auto, so
+                   this wrapper could not shrink below the ul's min-w-max content width.
+                   With six tabs the strip overflowed and the filter block landed on top
+                   of the last one — "Outstanding Recovery" was painted over by the
+                   Product Sales selects and could not be seen or clicked. Allowing the
+                   wrapper to shrink lets its own overflow-x-auto do the scrolling. -->
+              <div class="min-w-0 max-w-full overflow-x-auto thin-scrollbar">
                 <div class="text-sm font-medium text-gray-500 border-b border-gray-200">
                   <ul class="flex -mb-px min-w-max" id="tab-list"></ul>
                 </div>
