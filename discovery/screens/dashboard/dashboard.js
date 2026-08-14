@@ -1710,17 +1710,13 @@
     return stacked + table;
   }
 
-  /* compact = the phone card, which shows only the cause's primary action and
-     Remind. Three buttons in a two-column grid orphans the third onto its own
-     row; the full set stays one tap away in the expansion. Single column below
-     360px, where two buttons would each wrap to three lines. */
-  function rcRowActions(r, compact) {
+  /* Actions live in the expansion on every size. Single column below 380px,
+     where two side-by-side buttons each wrap to three lines. */
+  function rcRowActions(r) {
     var acts = RC_ACTIONS[r.cause].concat([{ k: 'remind', label: 'Remind' }]).filter(function (a, i, arr) {
       return arr.map(function (x) { return x.k; }).indexOf(a.k) === i;
     });
-    if (compact) acts = [acts[0], { k: 'remind', label: 'Remind' }];
-    return '<div class="grid gap-2 ' +
-      (compact ? 'grid-cols-1 min-[360px]:grid-cols-2' : 'grid-cols-2 sm:flex sm:flex-wrap') + '">' +
+    return '<div class="grid gap-2 grid-cols-1 min-[380px]:grid-cols-2 sm:flex sm:flex-wrap">' +
       acts.map(function (a, i) {
         return '<button data-rc-act="' + a.k + '" data-rc-scope="' + esc(r.id) + '" ' +
           'class="min-h-[44px] rounded-lg px-3 text-sm font-semibold transition-colors ' +
@@ -1744,38 +1740,68 @@
      is on screen, so the cards hold until `xl`. */
   var RC_BP = { cards: 'xl:hidden', table: 'hidden xl:block', one: 'xl:grid-cols-1' };
 
-  /* phone + tablet: cards. A sideways-scrolling table is a desktop table that
-     has been apologised for (addendum-003 D17). */
+  /* phone + tablet: the table rendered as cards. A sideways-scrolling table is a
+     desktop table that has been apologised for (addendum-003 D17) — but a card
+     list that lets its content flow freely loses the one thing a table is good
+     at, which is that every row puts the same field in the same place so the eye
+     can run down a column. So each card keeps fixed positions: name top-left,
+     amount top-right, route/salesman under the name, age under the amount, cause
+     along the bottom. Amounts are tabular-nums and right-aligned, and a header
+     strip labels the two columns above the list.
+
+     Collapsed, a card is data only — the same fields the desktop row carries,
+     and nothing else. Actions and invoices come with the expansion, exactly as
+     the desktop row expands. Fourteen rows each shouting a green button would
+     scan far worse and would compete with "Do these three", which is where the
+     acting is meant to happen. */
   function rcCards(rows, all) {
     if (!rows.length) return '<p class="rounded-xl border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-400">' +
       'No shops match the current filters.</p>';
-    return '<ul class="grid grid-cols-1 gap-3 sm:grid-cols-2 ' + RC_BP.one + '">' + rows.map(function (r) {
+
+    // column headers, only where the list is a single column
+    var head = '<div class="mb-2 flex items-baseline justify-between px-3.5 sm:hidden">' +
+      '<span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Shop</span>' +
+      '<span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Owes · oldest</span></div>';
+
+    var list = '<ul class="grid grid-cols-1 gap-2.5 sm:grid-cols-2 ' + RC_BP.one + '">' + rows.map(function (r) {
       var c = rcCauseOf(r.cause), o = RC_OWNER[c.owner], age = rcOldest(r), b = rcBucket(age);
       var open = rcOpen.indexOf(r.id) !== -1;
-      return '<li class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">' +
-        '<div class="border-l-4 ' + o.bar.replace('bg-', 'border-l-') + ' p-4">' +
-          '<div class="flex items-start justify-between gap-3">' +
-            '<div class="min-w-0">' +
-              '<p class="truncate text-base font-semibold leading-tight text-slate-900">' + esc(r.customer) + '</p>' +
-              '<p class="mt-1 truncate text-xs text-slate-500">' +
-                esc(r.route.replace(' Route', '')) + ' · ' + esc(r.salesman) + '</p></div>' +
-            '<div class="shrink-0 text-right">' +
-              '<p class="text-lg font-bold tabular-nums leading-none text-slate-900">' + money0(r.outstanding) + '</p>' +
-              '<p class="mt-1.5 inline-flex items-center gap-1 text-xs font-medium ' +
-                (age > 60 ? 'text-red-600' : 'text-slate-500') + '">' +
-                '<span class="h-2 w-2 rounded-sm ' + RC_BUCKET_TONE[b.id] + '"></span>' + age + 'd</p></div>' +
-          '</div>' +
-          '<p class="mt-3"><span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ' +
-            o.chip + '"><span class="h-1.5 w-1.5 rounded-full ' + o.dot + '"></span>' + esc(c.label) + '</span></p>' +
-          '<div class="mt-3">' + rcRowActions(r, true) + '</div>' +
-          '<button data-rc-row="' + esc(r.id) + '" class="mt-1 flex min-h-[44px] w-full items-center justify-center gap-1.5 ' +
-            'text-xs font-semibold text-slate-500" aria-expanded="' + open + '">' +
-            (open ? 'Hide invoices' : r.invoices.length + ' invoice' + (r.invoices.length === 1 ? '' : 's')) +
-            ICON.feather(open ? 'FiChevronUp' : 'FiChevronDown', 'h-4 w-4') + '</button>' +
-          (open ? '<div class="mt-1 space-y-3 border-t border-slate-100 pt-3">' +
-            rcInvoiceLines(r) + rcWhyStuck(r) + '</div>' : '') +
-        '</div></li>';
+
+      var row =
+        '<button data-rc-row="' + esc(r.id) + '" aria-expanded="' + open + '" ' +
+          'class="w-full px-3.5 py-3 text-left transition-colors active:bg-slate-50">' +
+          '<span class="flex items-baseline justify-between gap-3">' +
+            '<span class="min-w-0 truncate text-[15px] font-semibold leading-tight text-slate-900">' + esc(r.customer) + '</span>' +
+            '<span class="shrink-0 text-[15px] font-bold tabular-nums leading-tight text-slate-900">' + money0(r.outstanding) + '</span>' +
+          '</span>' +
+          '<span class="mt-1 flex items-baseline justify-between gap-3">' +
+            '<span class="min-w-0 truncate text-xs text-slate-500">' +
+              esc(r.route.replace(' Route', '')) + ' · ' + esc(r.salesman) + ' · ' +
+              r.invoices.length + ' invoice' + (r.invoices.length === 1 ? '' : 's') + '</span>' +
+            '<span class="inline-flex shrink-0 items-center gap-1 text-xs font-medium tabular-nums ' +
+              (age > 60 ? 'text-red-600' : 'text-slate-500') + '">' +
+              '<span class="h-2 w-2 rounded-sm ' + RC_BUCKET_TONE[b.id] + '"></span>' + age + 'd</span>' +
+          '</span>' +
+          '<span class="mt-2 flex items-center justify-between gap-2">' +
+            '<span class="inline-flex min-w-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs ' +
+              'font-medium ' + o.chip + '">' +
+              '<span class="h-1.5 w-1.5 shrink-0 rounded-full ' + o.dot + '"></span>' +
+              '<span class="truncate">' + esc(c.label) + '</span></span>' +
+            '<span class="shrink-0 text-slate-400">' +
+              ICON.feather(open ? 'FiChevronUp' : 'FiChevronDown', 'h-4 w-4') + '</span>' +
+          '</span>' +
+        '</button>';
+
+      var detail = open
+        ? '<div class="space-y-3 border-t border-slate-100 bg-slate-50/60 p-3.5">' +
+            rcInvoiceLines(r) + rcWhyStuck(r) + rcRowActions(r) + '</div>'
+        : '';
+
+      return '<li class="overflow-hidden rounded-xl border border-l-4 border-slate-200 ' +
+        o.bar.replace('bg-', 'border-l-') + ' bg-white shadow-sm">' + row + detail + '</li>';
     }).join('') + '</ul>';
+
+    return head + list;
   }
 
   function rcTableRows(rows, all) {
