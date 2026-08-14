@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard Module — Wireframe Hub</title>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<style>html,body{font-family:system-ui,sans-serif,Arial,Helvetica}</style>
+</head>
+<body class="antialiased bg-gray-50">
+<div class="max-w-4xl mx-auto px-6 py-8">
+
+  <h1 class="text-2xl font-bold text-slate-900 mb-2">Dashboard Module — clickable wireframe</h1>
+  <p class="text-sm text-slate-500 mb-6">
+    Pixel-parity recreation of the live admin dashboard at
+    <code class="text-xs bg-slate-100 px-1 py-0.5 rounded">b2bgreens.com/platform/dashboard</code>
+    (tenant <b>Murli</b>, user <b>Mahesh · Admin</b>) — the baseline this module iterates from.
+    Built from the real source of
+    <code class="text-xs bg-slate-100 px-1 py-0.5 rounded">exagon-ai/storefront-frontend</code>,
+    not from screenshots: same Tailwind class strings, same rendered font stack, same
+    lucide/react-icons glyphs. Direction and provenance in
+    <code class="text-xs bg-slate-100 px-1 py-0.5 rounded">instructions/addendum-003-pixel-parity-from-app-source.md</code>.
+    Data from <a class="text-emerald-600 underline" href="../../seed-data/seed.json">seed-data/seed.json</a>.
+  </p>
+
+  <!-- ================= CANONICAL ================= -->
+  <div class="rounded-2xl border border-teal-700 bg-teal-50 p-5 mb-8">
+    <span class="inline-block text-xs font-bold text-white bg-teal-800 rounded-full px-2 py-0.5 mb-2">Canonical · baseline recreation</span>
+    <h2 class="text-lg font-semibold text-slate-900 mb-1.5">Dashboard — 5 KPI tiles + 6 report tabs</h2>
+    <p class="text-xs text-slate-600 mb-3 leading-relaxed">
+      Sidebar + header app shell, five KPI tiles
+      (<b>Today · Yesterday · This Month · Last Month · All-Time Sales</b>) over six report tabs —
+      <b>Product Sales · Recent Orders · Discount Report · Order Cycle · Salesman Route Report ·
+      Outstanding Recovery</b>.
+      Live in the prototype: tab switching, period + sort filters, order status filter and change,
+      expandable order rows with line items, discount By&nbsp;Customer/By&nbsp;Route toggle with search,
+      order-cycle legend filtering with derived cycle progress, route-report route/staff filters, and
+      recovery filtering by cause, route or customer with expandable per-invoice ageing.
+    </p>
+    <a class="inline-flex items-center h-10 px-4 rounded-lg bg-teal-800 text-white text-sm font-semibold hover:brightness-110" href="dashboard.html">Open desktop →</a>
+  </div>
+
+  <!-- ================= WHAT EACH TAB ANSWERS ================= -->
+  <h2 class="text-sm font-semibold text-slate-900 mb-1.5">Report tabs — the question each one answers</h2>
+  <div class="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 mb-8">
+    <a class="block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-teal-600" href="dashboard.html">
+      <span class="inline-block text-xs font-bold text-teal-800 bg-teal-50 rounded-full px-2 py-0.5 mb-2">Tab 1</span>
+      <div class="text-sm font-bold text-slate-900 mb-1">Product Sales</div>
+      <div class="text-xs text-slate-500">Ranked products by sales or qty for a chosen period; article number + sale unit</div>
+    </a>
+    <a class="block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-teal-600" href="dashboard.html">
+      <span class="inline-block text-xs font-bold text-teal-800 bg-teal-50 rounded-full px-2 py-0.5 mb-2">Tab 2</span>
+      <div class="text-sm font-bold text-slate-900 mb-1">Recent Orders</div>
+      <div class="text-xs text-slate-500">Latest orders with status transitions, dispatch/delivery chips, invoice + timeline actions</div>
+    </a>
+    <a class="block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-teal-600" href="dashboard.html">
+      <span class="inline-block text-xs font-bold text-teal-800 bg-teal-50 rounded-full px-2 py-0.5 mb-2">Tab 3</span>
+      <div class="text-sm font-bold text-slate-900 mb-1">Discount Report</div>
+      <div class="text-xs text-slate-500">Order value → discount → net value, by customer or by route</div>
+    </a>
+    <a class="block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-teal-600" href="dashboard.html">
+      <span class="inline-block text-xs font-bold text-teal-800 bg-teal-50 rounded-full px-2 py-0.5 mb-2">Tab 4</span>
+      <div class="text-sm font-bold text-slate-900 mb-1">Order Cycle</div>
+      <div class="text-xs text-slate-500">Who is overdue against their own ordering cadence — the re-order prompt list</div>
+    </a>
+    <a class="block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-teal-600" href="dashboard.html">
+      <span class="inline-block text-xs font-bold text-teal-800 bg-teal-50 rounded-full px-2 py-0.5 mb-2">Tab 5</span>
+      <div class="text-sm font-bold text-slate-900 mb-1">Salesman Route Report</div>
+      <div class="text-xs text-slate-500">Cash vs UPI collected, opening cash, expense, handed over, and the difference to chase</div>
+    </a>
+    <a class="block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-teal-600" href="dashboard.html">
+      <span class="inline-block text-xs font-bold text-teal-800 bg-teal-50 rounded-full px-2 py-0.5 mb-2">Tab 6</span>
+      <div class="text-sm font-bold text-slate-900 mb-1">Outstanding Recovery</div>
+      <div class="text-xs text-slate-500">Where the cash is bleeding and why. One verdict naming the round that is ageing worst, three ranked actions, then the route league, the causes and the shops behind them</div>
+    </a>
+  </div>
+
+  <h2 class="text-sm font-semibold text-slate-900 mb-1.5">Reachable from Recent Orders</h2>
+  <div class="grid gap-3.5 sm:grid-cols-2 mb-8">
+    <a class="block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-teal-600" href="order-timeline.html?order=20268813551797&amp;status=Delivered">
+      <div class="text-sm font-bold text-slate-900 mb-1">Order Timeline</div>
+      <div class="text-xs text-slate-500">Clock button → <code>/order-timeline/&lt;invoice&gt;/&lt;status&gt;</code>. Fulfilment steps derived from the status graph.</div>
+    </a>
+    <a class="block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-teal-600" href="order.html?order=20268813551797&amp;status=Delivered">
+      <div class="text-sm font-bold text-slate-900 mb-1">Order (detail)</div>
+      <div class="text-xs text-slate-500">Eye button → <code>/order/&lt;invoice&gt;/&lt;status&gt;</code>. Details grid, items, and both print flows.</div>
+    </a>
+  </div>
+
+  <h2 class="text-sm font-semibold text-slate-900 mb-1.5">Not built yet</h2>
+  <p class="text-xs text-slate-500">
+    Follow-up Reminders raises a prototype notice. The two screens above exist so the flow is
+    walkable, but only their <em>chrome</em> is parity-checked — their bodies have not yet been matched
+    against <code>OrderTimeline.jsx</code> or the app's order page. The app also has a sixth <b>Delivery Report</b> tab that this
+    tenant hides via card-visibility config; it is deliberately omitted here to match the capture.
+  </p>
+</div>
+</body>
+</html>
