@@ -1776,38 +1776,66 @@
   }
 
   function rcTableRows(rows, all) {
-    var TH = 'border-b border-slate-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap lg:px-6';
-    // Cause rides under the shop name rather than taking a column of its own:
-    // as a sixth column it pushed the table to 1068px, which does not fit beside
-    // the module's 256px sidebar and was being clipped, not scrolled.
-    var cols = ['Shop', 'Owes', 'Oldest', 'Route / Salesman'];
+    /* One line per cell. The previous layout stacked name, cause chip and
+       phone inside the Shop cell and route above last-contact inside another,
+       which cost 97px a row while a third of the table's width sat empty.
+       Cause and phone are columns now — the fields an owner reads across, read
+       across. Shop is the only elastic column (w-full); every other header is
+       w-px + nowrap, which is the shrink-to-content idiom, so nothing overflows
+       whatever the sidebar leaves. */
+    var TH = 'border-b border-slate-200 px-3 py-2.5 text-left text-xs font-semibold uppercase ' +
+             'tracking-wide text-slate-500 whitespace-nowrap';
+    var cols = [
+      { label: 'Shop', cls: 'w-full' },
+      { label: 'Phone' },
+      { label: 'Cause' },
+      { label: 'Owes / inv', align: 'text-right' },
+      { label: 'Oldest', align: 'text-right' },
+      { label: 'Route · Salesman' },
+      { label: 'Last contact', align: 'text-right' }
+    ];
     var span = cols.length;
 
-    var head = '<thead><tr class="bg-slate-50">' + cols.map(function (c, i) {
-      return '<th class="' + TH + (i === 1 || i === 2 ? ' text-right' : '') + '">' + c + '</th>';
+    var head = '<thead><tr class="bg-slate-50">' + cols.map(function (c) {
+      return '<th class="' + TH + ' ' + (c.cls || 'w-px') + ' ' + (c.align || '') + '">' + c.label + '</th>';
     }).join('') + '</tr></thead>';
 
     var body = '<tbody>' + (rows.length ? rows.map(function (r) {
       var c = rcCauseOf(r.cause), o = RC_OWNER[c.owner], age = rcOldest(r), b = rcBucket(age);
       var open = rcOpen.indexOf(r.id) !== -1;
-      var TD = 'px-4 py-4 lg:px-6';
+      var TD = 'px-3 py-2.5 align-middle';
+      var since = r.lastContact ? rcAge(r.lastContact) + 'd' : 'never';
       return '<tr data-rc-row="' + esc(r.id) + '" class="cursor-pointer border-b border-slate-100 border-l-2 ' +
-          o.bar.replace('bg-', 'border-l-') + ' transition-colors ' + (open ? 'bg-slate-50' : 'hover:bg-slate-50/60') + '">' +
-        '<td class="' + TD + '"><div class="flex items-center gap-2">' +
-          '<span class="text-slate-400">' + ICON.feather(open ? 'FiChevronUp' : 'FiChevronDown', 'h-4 w-4') + '</span>' +
-          '<div class="min-w-0"><p class="truncate font-medium leading-tight text-slate-800">' + esc(r.customer) + '</p>' +
-            '<p class="mt-1"><span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border ' +
-              'px-2 py-0.5 text-xs font-medium ' + o.chip + '">' +
-              '<span class="h-1.5 w-1.5 shrink-0 rounded-full ' + o.dot + '"></span>' + esc(c.label) + '</span></p>' +
-            '<p class="mt-1 text-xs text-slate-400">✆ ' + esc(r.phone) + ' · ' + r.invoices.length +
-              ' invoice' + (r.invoices.length === 1 ? '' : 's') + '</p></div></div></td>' +
-        '<td class="' + TD + ' text-right"><p class="text-sm font-semibold tabular-nums text-slate-900">' + money0(r.outstanding) + '</p></td>' +
-        '<td class="' + TD + ' text-right"><span class="inline-flex items-center gap-1.5 text-sm font-medium ' +
-          (age > 60 ? 'text-red-600' : 'text-slate-700') + '">' +
+          o.bar.replace('bg-', 'border-l-') + ' transition-colors ' +
+          (open ? 'bg-slate-50' : 'hover:bg-slate-50/60') + '">' +
+
+        '<td class="' + TD + '"><div class="flex items-center gap-1.5">' +
+          '<span class="shrink-0 text-slate-400">' +
+            ICON.feather(open ? 'FiChevronUp' : 'FiChevronDown', 'h-4 w-4') + '</span>' +
+          '<span class="truncate font-medium text-slate-800">' + esc(r.customer) + '</span>' +
+        '</div></td>' +
+
+        '<td class="' + TD + ' whitespace-nowrap text-sm tabular-nums text-slate-500">' + esc(r.phone) + '</td>' +
+
+        '<td class="' + TD + ' whitespace-nowrap"><span class="inline-flex items-center gap-1.5 rounded-full ' +
+          'border px-2 py-0.5 text-xs font-medium ' + o.chip + '">' +
+          '<span class="h-1.5 w-1.5 shrink-0 rounded-full ' + o.dot + '"></span>' + esc(c.label) + '</span></td>' +
+
+        '<td class="' + TD + ' whitespace-nowrap text-right"><span class="text-sm font-semibold ' +
+          'tabular-nums text-slate-900">' + money0(r.outstanding) + '</span>' +
+          (r.invoices.length > 1 ? '<span class="ml-1 text-xs text-slate-400">/' + r.invoices.length + '</span>' : '') +
+        '</td>' +
+
+        '<td class="' + TD + ' whitespace-nowrap text-right"><span class="inline-flex items-center gap-1.5 ' +
+          'text-sm font-medium ' + (age > 60 ? 'text-red-600' : 'text-slate-700') + '">' +
           '<span class="h-2 w-2 rounded-sm ' + RC_BUCKET_TONE[b.id] + '"></span>' + age + 'd</span></td>' +
-        '<td class="' + TD + '"><p class="text-sm text-slate-700">' + esc(r.route.replace(' Route', '')) + '</p>' +
-          '<p class="mt-0.5 text-xs text-slate-400">' + esc(r.salesman) + ' · last contact ' +
-          (r.lastContact ? rcAge(r.lastContact) + 'd ago' : 'never') + '</p></td>' +
+
+        '<td class="' + TD + ' whitespace-nowrap text-sm text-slate-600">' +
+          esc(r.route.replace(' Route', '')) + ' · <span class="text-slate-400">' + esc(r.salesman) + '</span></td>' +
+
+        '<td class="' + TD + ' whitespace-nowrap text-right text-sm ' +
+          (r.lastContact ? 'text-slate-500' : 'font-semibold text-red-600') + '">' + since + '</td>' +
+
         '</tr>' +
         (open ? '<tr class="bg-slate-50/70"><td colspan="' + span + '" class="px-4 py-5 lg:px-6">' +
           '<div class="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">' +
