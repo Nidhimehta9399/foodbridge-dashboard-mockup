@@ -38,7 +38,9 @@
   (<code>b2bgreens.com/platform/dashboard</code>) faithfully enough to argue about what an owner
   needs to see on landing — and to establish which reports earn a place there. Current iteration
   (<a href="instructions/addendum-002-outstanding-recovery-tab.md">addendum-002</a>) adds a sixth tab,
-  <b>Outstanding Recovery</b>, which groups receivables by <em>cause</em> rather than by debtor.</p>
+  <b>Outstanding Recovery</b>, which groups receivables by <em>cause</em> rather than by debtor;
+  <a href="instructions/addendum-003-recovery-glanceable-by-tier.md">addendum-003</a> reorders it
+  decision-first, cuts its depth to the ₹299 / ₹999 / ₹2499 personas, and rebuilds it mobile-first.</p>
 
   <h2>Screens</h2>
   <ul>
@@ -69,7 +71,8 @@
       <tr><td>Dashboard · <code>viewing.orderCycle</code></td><td>click legend chip (Overdue · Due Soon · On Track · New)</td><td>same state, filtered to that derived cycle status</td></tr>
       <tr><td>Dashboard · <code>viewing.orderCycle</code></td><td>Refresh</td><td>same state, recomputed from <code>daysSince</code> vs <code>cadenceDays</code></td></tr>
       <tr><td>Dashboard · <code>viewing.salesmanRoute</code></td><td>filter by route / staff</td><td>same state, filtered; <code>difference ≠ 0</code> is the exception to chase</td></tr>
-      <tr><td>Dashboard · <code>viewing.outstandingRecovery</code></td><td>select a cause card</td><td>same state — concentration panels and the table filter to that cause; re-selecting clears it</td></tr>
+      <tr><td>Dashboard · <code>viewing.outstandingRecovery</code></td><td>switch plan (₹299 · ₹999 · ₹2499)</td><td>same state, different composition — verdict, the three ranked actions, the reasoning band and the list columns all change; filters reset</td></tr>
+      <tr><td>Dashboard · <code>viewing.outstandingRecovery</code></td><td>select a cause row</td><td>same state — the list filters to that cause; re-selecting clears it</td></tr>
       <tr><td>Dashboard · <code>viewing.outstandingRecovery</code></td><td>select a customer or route bar</td><td>same state, filtered; cause + route + customer stack, each clearable from its chip</td></tr>
       <tr><td>Dashboard · <code>viewing.outstandingRecovery</code></td><td>expand a customer row</td><td>same state — the invoices behind the balance, their ages, why it is stuck, and the actions for that cause</td></tr>
       <tr><td>Dashboard · <code>viewing.outstandingRecovery</code></td><td>row / card action (credit note · cancel · re-issue · collect · cash-only · route collection · remind)</td><td><em>deliberate dead end</em> — each flow belongs to Finance, Logistics or Customer Management; raises a prototype notice naming the owner</td></tr>

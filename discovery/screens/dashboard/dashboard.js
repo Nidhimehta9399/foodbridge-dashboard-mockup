@@ -210,6 +210,18 @@
     window.addEventListener('resize', function () {
       if (window.innerWidth >= 1024) setOpen(false);
     });
+
+    // Outstanding Recovery swaps composition at a breakpoint (cards ⇄ table) and
+    // takes its "why" default from the viewport, so it has to re-render when the
+    // window crosses one. Debounced; only that tab cares.
+    var lastBand = null, rt;
+    window.addEventListener('resize', function () {
+      var band = window.innerWidth >= 1280 ? 3 : window.innerWidth >= 1024 ? 2 : window.innerWidth >= 640 ? 1 : 0;
+      if (band === lastBand) return;
+      lastBand = band;
+      clearTimeout(rt);
+      rt = setTimeout(function () { if (active === 'outstanding_recovery') renderPanel(); }, 120);
+    });
   }
 
   /* ================= KPI tiles — CardItemTwo.jsx ================= */
@@ -1443,7 +1455,8 @@
     cancel: 'Cancel the invoice raised against a failed delivery.\n\nPrototype: the app voids the invoice here — that flow belongs to the Finance module.',
     redeliver: 'Schedule a redelivery on the next run.\n\nPrototype: the app adds a stop here — that flow belongs to Distribution & Logistics.',
     reissue: 'Re-issue the invoice with corrected GST / PO details.\n\nPrototype: the app regenerates the document here — that flow belongs to the Finance module.',
-    remind: 'Reminder queued for this customer.\n\nPrototype: the app sends it through its WhatsApp provider — the Finance module owns the batch reminder flow.',
+    remind: 'Reminder queued.\n\nPrototype: the app sends it through its WhatsApp provider — the Finance module owns the batch reminder flow.',
+    call: 'Calling this shop.\n\nPrototype: the app dials from the browser here — on a phone this is a tel: link.',
     collect: 'Record a payment against this customer.\n\nPrototype: the app opens its Collect Payment drawer here — that flow belongs to the Finance module (Customer Receivables).',
     cashonly: 'Move this customer to cash-only supply.\n\nPrototype: the app changes their credit terms here — that flow belongs to Customer Management.',
     route: 'Add this customer to a salesman collection run.\n\nPrototype: the app assigns it to a route here — that flow belongs to Distribution & Logistics.'
@@ -1484,264 +1497,476 @@
     }).join('') + '</div>';
   }
 
-  /* ---- ① hero — one total, one split, one sentence. No tiles (D11). ---- */
-  function rcHero(all) {
-    var total = rcSum(all);
-    var ourRows = all.filter(function (r) { return rcCauseOf(r.cause).owner === 'us'; });
-    var ours = rcSum(ourRows), theirs = total - ours;
-    var prev = S.recoveryCauses.reduce(function (a, c) { return a + c.prevOutstanding; }, 0);
-
-    // the biggest month-on-month mover carries the sentence
-    var mover = S.recoveryCauses.map(function (c) {
-      var now = rcSum(all.filter(function (r) { return r.cause === c.id; }));
-      return { c: c, now: now, d: now - c.prevOutstanding };
-    }).sort(function (a, b) { return Math.abs(b.d) - Math.abs(a.d); })[0];
-
-    var oldest = rcSum(all.filter(function (r) { return rcOldest(r) > 60; }));
-
-    var side = function (o, amt) {
-      return '<div class="min-w-0 flex-1">' +
-        '<div class="flex items-baseline justify-between gap-2">' +
-          '<span class="text-xs font-semibold uppercase tracking-wide text-slate-600">' + o.head + '</span>' +
-          '<span class="text-sm font-bold text-slate-900">' + money0(amt) +
-            ' <span class="font-medium text-slate-400">' + rcPct(amt, total) + '%</span></span></div>' +
-        '<p class="mt-0.5 text-[11px] leading-snug text-slate-500">' + o.sub + '</p></div>';
-    };
-
-    return '<div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">' +
-      '<div class="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">' +
-        '<div>' +
-          '<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Net receivable stuck</p>' +
-          '<div class="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">' +
-            '<span class="text-3xl font-bold leading-none text-slate-900 sm:text-4xl">' + money0(total) + '</span>' +
-            '<span class="text-sm text-slate-500">across ' + all.length + ' customers</span>' +
-            rcDelta(total, prev) +
-          '</div></div>' +
-        '<div class="text-left sm:text-right">' +
-          '<p class="text-xs text-slate-500">Past 60 days</p>' +
-          '<p class="text-lg font-bold text-red-600">' + money0(oldest) + '</p>' +
-          '<p class="text-[11px] text-slate-400">' + rcPct(oldest, total) + '% of the total</p>' +
-        '</div>' +
-      '</div>' +
-
-      '<div class="mt-5 flex gap-1.5">' +
-        '<div class="' + RC_OWNER.us.bar + ' h-2.5 rounded-l-full" style="width:' + (ours / (total || 1) * 100) + '%"></div>' +
-        '<div class="' + RC_OWNER.them.bar + ' h-2.5 rounded-r-full" style="width:' + (theirs / (total || 1) * 100) + '%"></div>' +
-      '</div>' +
-      '<div class="mt-2.5 flex flex-col gap-3 sm:flex-row sm:gap-6">' +
-        side(RC_OWNER.us, ours) + side(RC_OWNER.them, theirs) + '</div>' +
-
-      '<p class="mt-4 border-t border-slate-100 pt-4 text-sm leading-relaxed text-slate-600">' +
-        '<strong class="font-semibold text-slate-900">' + money0(ours) + '</strong> of it — ' +
-        rcPct(ours, total) + '% — is not a collections problem at all: it is disputed goods, ' +
-        'failed deliveries and paperwork nobody has re-issued. That money needs no negotiation. ' +
-        '<strong class="font-semibold text-slate-900">' + esc(mover.c.label) + '</strong> moved most this month, ' +
-        (mover.d >= 0 ? 'up ' : 'down ') + '<strong class="font-semibold text-slate-900">' + money0(Math.abs(mover.d)) + '</strong>.' +
-      '</p></div>';
+  /* ---- tier gating (addendum-003 D16) ----
+     Each persona is kept awake by a different question, so each is shown a
+     different FIRST screen — not the same screen with pieces greyed out. The
+     switcher is a discovery affordance for role-playing all three, the way the
+     Finance module uses ?state= hooks. It is not a product control. */
+  var rcTier = 'control';
+  // The reasoning band is open on desktop and closed on a phone, where it would
+  // sit between the owner and the list. null = follow the viewport; true/false =
+  // the owner has said otherwise and that sticks. Resolved at render time, not
+  // captured at load, so rotating a phone or resizing a window still lands on
+  // the right default.
+  var rcWhyOpen = null;
+  function rcWhyIsOpen() {
+    return rcWhyOpen === null ? window.innerWidth >= 1024 : rcWhyOpen;
   }
 
-  /* ---- ② cause cards — the diagnosis. Click filters everything below. ---- */
-  function rcCauseCards(all) {
-    var total = rcSum(all);
-    var cards = S.recoveryCauses.map(function (c) {
-      var rows = all.filter(function (r) { return r.cause === c.id; });
-      var amt = rcSum(rows), o = RC_OWNER[c.owner], on = rcCause === c.id;
-      var avg = rcAvgAge(rows);
-
-      return '<article data-rc-cause="' + c.id + '" role="button" tabindex="0" aria-pressed="' + on + '" ' +
-        'class="flex cursor-pointer flex-col rounded-xl border bg-white p-4 text-left shadow-sm transition-all ' +
-        (on ? 'border-emerald-500 ring-2 ring-emerald-100' : 'border-slate-200 hover:border-slate-300 hover:shadow') + '">' +
-
-        '<div class="flex items-center justify-between gap-2">' +
-          '<span class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ' + o.chip + '">' +
-            '<span class="h-1.5 w-1.5 rounded-full ' + o.dot + '"></span>' + o.label + '</span>' +
-          '<span class="text-[11px] font-semibold text-slate-400">' + rcPct(amt, total) + '%</span></div>' +
-
-        '<h4 class="mt-2.5 text-sm font-semibold leading-snug text-slate-800">' + esc(c.label) + '</h4>' +
-        '<div class="mt-1 flex items-baseline gap-2">' +
-          '<span class="text-xl font-bold text-slate-900">' + money0(amt) + '</span>' +
-          rcDelta(amt, c.prevOutstanding) + '</div>' +
-
-        '<div class="mt-3">' + rcAgeBar(rows) +
-          '<p class="mt-1.5 text-[11px] ' + (avg > 45 ? 'font-semibold text-red-600' : 'text-slate-500') + '">' +
-            'Average age ' + avg + ' days' + (avg > 45 ? ' — going cold' : '') + '</p></div>' +
-
-        '<p class="mt-3 flex-1 text-[11px] leading-relaxed text-slate-500">' + esc(c.blurb) + '</p>' +
-
-        '<button data-rc-act="' + RC_ACTIONS[c.id][0].k + '" data-rc-scope="' + c.id + '" ' +
-          'class="mt-3 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold ' +
-          'text-slate-700 transition-colors hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700">' +
-          esc(c.actionLabel) + ' (' + rows.length + ')</button>' +
-        '</article>';
-    }).join('');
-
-    return '<div>' +
-      '<div class="mb-3 flex flex-wrap items-end justify-between gap-2">' +
-        '<div><h3 class="text-base font-semibold text-slate-800">Why it is stuck</h3>' +
-          '<p class="mt-0.5 text-xs text-slate-500">Each cause needs a different person to fix it. Select one to filter everything below.</p></div>' +
-        rcAgeLegend() + '</div>' +
-      '<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">' + cards + '</div></div>';
+  function rcTierOf() {
+    var t = S.recoveryTiers.filter(function (x) { return x.id === rcTier; })[0];
+    return t || S.recoveryTiers[1];
   }
 
-  /* ---- ③ concentration — three phone calls, or a policy change? ---- */
-  // Bars are scaled to the largest item in the list, not to the grand total:
-  // against the total the top bar would only ever fill a quarter of its track
-  // and the shape of the concentration would be invisible. The absolute
-  // figure sits at the end of every row, and the panel footer carries the
-  // share of the total.
-  function rcBarList(items, attr) {
-    var scale = items.reduce(function (m, i) { return Math.max(m, i.value); }, 0) || 1;
-    return '<div class="space-y-2.5">' + items.map(function (it) {
-      return '<button ' + attr(it) + ' class="group flex w-full items-center gap-3 text-left">' +
-        '<span class="w-[42%] shrink-0 truncate text-xs font-medium text-slate-700 group-hover:text-emerald-700" ' +
-          'title="' + esc(it.label) + '">' + esc(it.label) +
-          (it.sub ? '<span class="block truncate text-[11px] font-normal text-slate-400">' + esc(it.sub) + '</span>' : '') +
-        '</span>' +
-        '<span class="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">' +
-          '<span class="block h-full rounded-full ' + (it.on ? 'bg-emerald-600' : 'bg-emerald-400 group-hover:bg-emerald-500') +
-            '" style="width:' + (it.value / scale * 100) + '%"></span></span>' +
-        '<span class="w-20 shrink-0 text-right text-xs font-semibold tabular-nums text-slate-800">' + money0(it.value) + '</span>' +
-        '</button>';
-    }).join('') + '</div>';
-  }
-
-  function rcConcentration(all) {
-    var total = rcSum(all);
-
-    var top = all.slice().sort(function (a, b) { return b.outstanding - a.outstanding; }).slice(0, 5);
-    var topShare = rcPct(rcSum(top), total);
-
-    var routes = S.routes.map(function (name) {
+  /* ---- shared reductions ---- */
+  function rcRouteStats(all) {
+    return S.routes.map(function (name) {
       var rows = all.filter(function (r) { return r.route === name; });
-      var men = rows.map(function (r) { return r.salesman; })
-        .filter(function (v, i, a) { return a.indexOf(v) === i; });
-      return { label: name.replace(' Route', ''), sub: men.join(', ') || '—', value: rcSum(rows), name: name,
-               on: rcRoute === name };
-    }).sort(function (a, b) { return b.value - a.value; });
-
-    var panel = function (title, hint, body, foot) {
-      return '<section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">' +
-        '<h3 class="text-sm font-semibold text-slate-800">' + title + '</h3>' +
-        '<p class="mb-4 mt-0.5 text-xs text-slate-500">' + hint + '</p>' + body +
-        '<p class="mt-4 border-t border-slate-100 pt-3 text-[11px] text-slate-500">' + foot + '</p></section>';
-    };
-
-    return '<div class="grid grid-cols-1 gap-3 lg:grid-cols-2">' +
-      panel('Concentrated in a few customers?',
-        'If it is, this is a few phone calls — not a collections drive.',
-        rcBarList(top.map(function (r) {
-          return { label: r.customer, sub: rcCauseOf(r.cause).label, value: r.outstanding,
-                   on: rcCustomer === r.id, id: r.id };
-        }), function (it) { return 'data-rc-customer="' + esc(it.id) + '"'; }),
-        '<strong class="font-semibold text-slate-700">Top 5 hold ' + topShare + '%</strong> of ' + money0(total) +
-        '. The rest is spread across ' + (all.length - top.length) + ' more customers.') +
-
-      panel('Or concentrated on a route?',
-        'If it is, the fix is that route’s terms — not any one customer.',
-        rcBarList(routes, function (it) { return 'data-rc-route="' + esc(it.name) + '"'; }),
-        esc(routes[0].label) + ' carries ' + rcPct(routes[0].value, total) + '% of everything outstanding, on ' +
-        esc(routes[0].sub) + '’s round. Cross-check the cash handovers on the ' +
-        '<strong class="font-semibold text-slate-700">Salesman Route Report</strong> tab.') +
-    '</div>';
+      var amt = rcSum(rows);
+      return {
+        route: name, short: name.replace(' Route', ''), rows: rows, amount: amt,
+        shops: rows.length, avgAge: rcAvgAge(rows),
+        salesman: rows.length ? rows[0].salesman : '—'
+      };
+    }).filter(function (r) { return r.shops; });
+  }
+  function rcOldRows(all) {
+    return all.filter(function (r) { return rcOldest(r) > 60; });
   }
 
-  /* ---- ④ the table — drill-down, deliberately last ---- */
+  /* ---- ① the verdict — one number, one sentence (D15) ---- */
+  function rcVerdictLine(all) {
+    var total = rcSum(all);
+    if (rcTier === 'start') {
+      var old = rcOldRows(all);
+      if (!old.length) return 'Nothing has gone past 60 days. Chase the biggest balances first.';
+      return old.length + ' shop' + (old.length === 1 ? '' : 's') + ' owe you <strong>' + money0(rcSum(old)) +
+        '</strong> and have not paid in over 60 days. Start there.';
+    }
+    if (rcTier === 'grow') {
+      var worst = rcRouteStats(all).slice().sort(function (a, b) { return b.avgAge - a.avgAge; })[0];
+      var biggest = rcRouteStats(all).slice().sort(function (a, b) { return b.amount - a.amount; })[0];
+      if (worst.route === biggest.route) {
+        return '<strong>' + esc(worst.salesman) + '</strong> carries both the most money and the oldest — ' +
+          money0(worst.amount) + ' averaging ' + worst.avgAge + ' days on ' + esc(worst.short) + '.';
+      }
+      return '<strong>' + esc(worst.salesman) + '</strong>’s round is the smallest at ' + money0(worst.amount) +
+        ' but the oldest at ' + worst.avgAge + ' days. That is a discipline problem, not a cash problem.';
+    }
+    var ours = rcSum(all.filter(function (r) { return rcCauseOf(r.cause).owner === 'us'; }));
+    return '<strong>' + money0(ours) + '</strong> — ' + rcPct(ours, total) +
+      '% — is stuck on your own paperwork, not on customers refusing to pay.';
+  }
+
+  function rcVerdict(all) {
+    var total = rcSum(all);
+    var prev = S.recoveryCauses.reduce(function (a, c) { return a + c.prevOutstanding; }, 0);
+    var d = total - prev;
+
+    return '<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">' +
+      '<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Stuck right now</p>' +
+      '<div class="mt-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">' +
+        '<span class="text-[2.5rem] font-bold leading-none tracking-tight text-slate-900 sm:text-5xl">' + money0(total) + '</span>' +
+        '<span class="text-sm text-slate-500">across ' + all.length + ' shops</span>' +
+        (d ? '<span class="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold ' +
+          (d > 0 ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700') + '">' +
+          (d > 0 ? '▲' : '▼') + money0(Math.abs(d)) + ' this month</span>' : '') +
+      '</div>' +
+      '<p class="mt-4 border-t border-slate-100 pt-4 text-base leading-relaxed text-slate-700 sm:text-lg">' +
+        rcVerdictLine(all) + '</p></section>';
+  }
+
+  /* ---- ② do these three (D13/D14) ----
+     The ranking is the product. A list of five causes asks the owner to do the
+     prioritising, which is exactly the work being outsourced. Capped at three,
+     ordered by friction rather than by size — the biggest number is rarely the
+     fastest money. */
+  var RC_MONEY_VERB = {              // presentation, not seed: how the money reads
+    terms_exceeded: 'Stops <b>%</b> growing',
+    habitual_late: 'Collects <b>%</b>'
+  };
+  function rcMoneyLine(cause, amt) {
+    var tpl = RC_MONEY_VERB[cause.id] || 'Frees <b>%</b>';
+    return tpl.replace('%', money0(amt));
+  }
+
+  function rcActionsFor(all) {
+    var stats = rcRouteStats(all);
+
+    if (rcTier === 'start') {
+      var old = rcOldRows(all).sort(function (a, b) { return b.outstanding - a.outstanding; });
+      var top = all.slice().sort(function (a, b) { return b.outstanding - a.outstanding; })
+        .filter(function (r) { return old.indexOf(r) === -1; })[0];
+      var restRows = all.filter(function (r) { return old.indexOf(r) === -1 && r !== top; });
+      var out = [];
+      if (old.length) out.push({
+        title: 'WhatsApp the ' + old.length + ' shop' + (old.length === 1 ? '' : 's') + ' past 60 days',
+        money: 'Chases <b>' + money0(rcSum(old)) + '</b>',
+        effort: 'One message · nothing paid in over two months',
+        act: 'remind', scope: 'oldest'
+      });
+      if (top) out.push({
+        title: 'Call ' + top.customer,
+        money: 'Chases <b>' + money0(top.outstanding) + '</b>',
+        effort: 'Your biggest single balance · ' + top.invoices.length + ' invoice' + (top.invoices.length === 1 ? '' : 's'),
+        act: 'call', scope: top.id
+      });
+      if (restRows.length) out.push({
+        title: 'Remind the other ' + restRows.length + ' shops',
+        money: 'Chases <b>' + money0(rcSum(restRows)) + '</b>',
+        effort: 'One batch on WhatsApp · nothing urgent here yet',
+        act: 'remind', scope: 'rest'
+      });
+      return out.slice(0, 3);
+    }
+
+    if (rcTier === 'grow') {
+      var byAge = stats.slice().sort(function (a, b) { return b.avgAge - a.avgAge; })[0];
+      var byAmt = stats.slice().sort(function (a, b) { return b.amount - a.amount; })[0];
+      var cold = all.filter(function (r) { return !r.lastContact; })
+        .sort(function (a, b) { return rcOldest(b) - rcOldest(a); })[0];
+      var out = [{
+        title: 'Review ' + byAge.salesman + '’s book',
+        money: '<b>' + money0(byAge.amount) + '</b> on ' + esc(byAge.short),
+        effort: byAge.shops + ' shops averaging ' + byAge.avgAge + ' days — the oldest of any route',
+        act: 'route', scope: byAge.route
+      }];
+      if (byAmt.route !== byAge.route) out.push({
+        title: esc(byAmt.short) + ' holds ' + rcPct(byAmt.amount, rcSum(all)) + '% of everything',
+        money: '<b>' + money0(byAmt.amount) + '</b> on ' + esc(byAmt.salesman) + '’s round',
+        effort: byAmt.shops + ' shops · one round carrying most of the exposure',
+        act: 'route', scope: byAmt.route
+      });
+      if (cold) out.push({
+        title: cold.customer + ' has never been contacted',
+        money: '<b>' + money0(cold.outstanding) + '</b> · ' + rcOldest(cold) + ' days',
+        effort: esc(cold.salesman) + ' on ' + esc(cold.route.replace(' Route', '')) + ' · no collection attempt logged',
+        act: 'remind', scope: cold.id
+      });
+      return out.slice(0, 3);
+    }
+
+    // control — processes, ordered by friction
+    return S.recoveryCauses.slice()
+      .sort(function (a, b) { return a.effortRank - b.effortRank; })
+      .slice(0, 3)
+      .map(function (c) {
+        var rows = all.filter(function (r) { return r.cause === c.id; });
+        return {
+          title: esc(c.actionLabel) + ' · ' + rows.length + ' shop' + (rows.length === 1 ? '' : 's'),
+          money: rcMoneyLine(c, rcSum(rows)),
+          effort: esc(c.effort),
+          act: RC_ACTIONS[c.id][0].k, scope: c.id
+        };
+      });
+  }
+
+  function rcActions(all) {
+    var acts = rcActionsFor(all);
+    return '<section>' +
+      '<h3 class="mb-2.5 text-sm font-semibold uppercase tracking-wide text-slate-500">Do these three</h3>' +
+      '<ol class="space-y-2.5">' + acts.map(function (a, i) {
+        return '<li><button data-rc-act="' + esc(a.act) + '" data-rc-scope="' + esc(a.scope) + '" ' +
+          'class="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-left ' +
+          'shadow-sm transition-all hover:border-emerald-400 hover:shadow active:bg-slate-50 sm:gap-4 sm:p-5">' +
+          '<span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm ' +
+            'font-bold text-white">' + (i + 1) + '</span>' +
+          '<span class="min-w-0 flex-1">' +
+            '<span class="block text-base font-semibold leading-snug text-slate-900">' + a.title + '</span>' +
+            '<span class="mt-1 block text-sm text-slate-600">' + a.money + '</span>' +
+            '<span class="mt-0.5 block text-xs leading-snug text-slate-400">' + a.effort + '</span>' +
+          '</span>' +
+          '<span class="shrink-0 text-slate-300">' + ICON.feather('FiChevronRight', 'h-5 w-5') + '</span>' +
+          '</button></li>';
+      }).join('') + '</ol></section>';
+  }
+
+  /* ---- ③ why — the reasoning, collapsed on a phone ---- */
+  function rcCauseRow(c, all) {
+    var rows = all.filter(function (r) { return r.cause === c.id; });
+    var amt = rcSum(rows), o = RC_OWNER[c.owner], on = rcCause === c.id;
+    return '<button data-rc-cause="' + c.id + '" aria-pressed="' + on + '" ' +
+      'class="flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors ' +
+      (on ? 'border-emerald-500 bg-emerald-50/50' : 'border-slate-200 bg-white hover:border-slate-300') + '">' +
+      '<span class="h-2 w-2 shrink-0 rounded-full ' + o.dot + '"></span>' +
+      '<span class="min-w-0 flex-1">' +
+        '<span class="block truncate text-sm font-medium text-slate-800">' + esc(c.label) + '</span>' +
+        '<span class="mt-0.5 block text-xs text-slate-400">' + o.label + ' · ' + rows.length +
+          ' shops · avg ' + rcAvgAge(rows) + 'd</span>' +
+      '</span>' +
+      '<span class="hidden w-24 shrink-0 min-[420px]:block">' + rcAgeBar(rows) + '</span>' +
+      '<span class="shrink-0 text-sm font-semibold tabular-nums text-slate-900">' + money0(amt) + '</span>' +
+      '</button>';
+  }
+
+  function rcRouteRow(st, max, all) {
+    var on = rcRoute === st.route;
+    return '<button data-rc-route="' + esc(st.route) + '" aria-pressed="' + on + '" ' +
+      'class="flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors ' +
+      (on ? 'border-emerald-500 bg-emerald-50/50' : 'border-slate-200 bg-white hover:border-slate-300') + '">' +
+      '<span class="min-w-0 flex-1">' +
+        '<span class="block truncate text-sm font-medium text-slate-800">' + esc(st.short) +
+          ' <span class="font-normal text-slate-400">· ' + esc(st.salesman) + '</span></span>' +
+        '<span class="mt-1 block h-1.5 overflow-hidden rounded-full bg-slate-100">' +
+          '<span class="block h-full rounded-full bg-emerald-500" style="width:' + (st.amount / max * 100) + '%"></span></span>' +
+        '<span class="mt-1 block text-xs text-slate-400">' + st.shops + ' shops · avg ' +
+          '<span class="' + (st.avgAge > 60 ? 'font-semibold text-red-600' : '') + '">' + st.avgAge + 'd</span>' +
+          ' · ' + rcPct(st.amount, rcSum(all)) + '% of total</span>' +
+      '</span>' +
+      '<span class="shrink-0 text-sm font-semibold tabular-nums text-slate-900">' + money0(st.amount) + '</span>' +
+      '</button>';
+  }
+
+  function rcWhy(all) {
+    if (rcTier === 'start') return '';          // the list is the report at this tier
+    var total = rcSum(all);
+    var ours = rcSum(all.filter(function (r) { return rcCauseOf(r.cause).owner === 'us'; }));
+    var theirs = total - ours;
+
+    var split =
+      '<div class="rounded-xl border border-slate-200 bg-white p-4">' +
+        '<div class="flex gap-1.5">' +
+          '<div class="h-2.5 rounded-l-full ' + RC_OWNER.us.bar + '" style="width:' + (ours / total * 100) + '%"></div>' +
+          '<div class="h-2.5 rounded-r-full ' + RC_OWNER.them.bar + '" style="width:' + (theirs / total * 100) + '%"></div>' +
+        '</div>' +
+        '<div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">' +
+          [[RC_OWNER.us, ours], [RC_OWNER.them, theirs]].map(function (p) {
+            return '<div class="flex items-baseline justify-between gap-2">' +
+              '<span class="inline-flex items-center gap-1.5 text-sm text-slate-600">' +
+                '<span class="h-2 w-2 rounded-full ' + p[0].dot + '"></span>' + p[0].head + '</span>' +
+              '<span class="text-sm font-semibold text-slate-900">' + money0(p[1]) +
+                ' <span class="font-normal text-slate-400">' + rcPct(p[1], total) + '%</span></span></div>';
+          }).join('') +
+        '</div></div>';
+
+    var stats = rcRouteStats(all);
+    var max = stats.reduce(function (m, s) { return Math.max(m, s.amount); }, 0) || 1;
+    var routes = '<div class="space-y-2">' + stats.slice()
+      .sort(function (a, b) { return b.avgAge - a.avgAge; })
+      .map(function (s) { return rcRouteRow(s, max, all); }).join('') + '</div>';
+
+    var causes = '<div class="space-y-2">' + S.recoveryCauses.slice()
+      .sort(function (a, b) { return rcSum(all.filter(function (r) { return r.cause === b.id; })) -
+                                     rcSum(all.filter(function (r) { return r.cause === a.id; })); })
+      .map(function (c) { return rcCauseRow(c, all); }).join('') + '</div>';
+
+    var body = rcTier === 'grow'
+      ? '<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">' +
+          '<div><p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">By route · oldest first</p>' + routes + '</div>' +
+          '<div><div class="mb-2 flex flex-wrap items-center justify-between gap-2">' +
+            '<p class="text-xs font-semibold uppercase tracking-wide text-slate-400">By cause</p>' +
+            '<span class="hidden sm:block">' + rcAgeLegend() + '</span></div>' + causes + '</div>' +
+        '</div>'
+      : '<div class="space-y-4">' + split +
+          '<div><div class="mb-2 flex flex-wrap items-center justify-between gap-2">' +
+            '<p class="text-xs font-semibold uppercase tracking-wide text-slate-400">By cause · tap to filter the list</p>' +
+            '<span class="hidden sm:block">' + rcAgeLegend() + '</span></div>' + causes + '</div>' +
+        '</div>';
+
+    return '<section class="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 sm:p-5">' +
+      '<button data-rc-why class="flex min-h-[44px] w-full items-center justify-between gap-3 text-left" ' +
+        'aria-expanded="' + rcWhyIsOpen() + '">' +
+        '<span><span class="block text-sm font-semibold text-slate-800">Why it is stuck</span>' +
+          '<span class="block text-xs text-slate-500">' +
+          (rcTier === 'grow' ? 'Which round and which cause is holding it' : 'Whose process is holding it, and which cause') +
+          '</span></span>' +
+        '<span class="shrink-0 text-slate-400">' + ICON.feather(rcWhyIsOpen() ? 'FiChevronUp' : 'FiChevronDown', 'h-5 w-5') + '</span>' +
+      '</button>' +
+      (rcWhyIsOpen() ? '<div class="mt-4">' + body + '</div>' : '') +
+      '</section>';
+  }
+
+  /* ---- ④ the list ---- */
   function rcInvoiceLines(r) {
-    return '<div class="overflow-hidden rounded-lg border border-slate-200">' +
+    var rowsHtml = r.invoices.slice().sort(function (a, b) { return rcAge(b.date) - rcAge(a.date); })
+      .map(function (i) {
+        var age = rcAge(i.date), b = rcBucket(age);
+        return { no: i.invoiceNo, date: fmtDate(i.date), age: age, tone: RC_BUCKET_TONE[b.id], amt: i.amount };
+      });
+
+    // phone: stacked rows. sm+: a real table.
+    var stacked = '<ul class="space-y-2 ' + rcBP().cards + '">' + rowsHtml.map(function (i) {
+      return '<li class="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3">' +
+        '<span class="min-w-0"><span class="block truncate font-mono text-xs text-slate-700">' + esc(i.no) + '</span>' +
+          '<span class="mt-0.5 block text-xs text-slate-400">' + i.date + ' · ' +
+          '<span class="inline-flex items-center gap-1"><span class="inline-block h-1.5 w-1.5 rounded-sm ' + i.tone + '"></span>' +
+          i.age + 'd</span></span></span>' +
+        '<span class="shrink-0 text-sm font-semibold text-slate-900">' + money0(i.amt) + '</span></li>';
+    }).join('') + '</ul>';
+
+    var table = '<div class="overflow-hidden rounded-lg border border-slate-200 ' + rcBP().table + '">' +
       '<table class="w-full text-xs"><thead><tr class="bg-slate-50 text-slate-500">' +
         '<th class="px-3 py-2 text-left font-semibold uppercase tracking-wide">Invoice</th>' +
         '<th class="px-3 py-2 text-left font-semibold uppercase tracking-wide">Raised</th>' +
         '<th class="px-3 py-2 text-right font-semibold uppercase tracking-wide">Age</th>' +
         '<th class="px-3 py-2 text-right font-semibold uppercase tracking-wide">Outstanding</th>' +
-      '</tr></thead><tbody class="divide-y divide-slate-100">' +
-      r.invoices.slice().sort(function (a, b) { return rcAge(b.date) - rcAge(a.date); }).map(function (i) {
-        var age = rcAge(i.date), b = rcBucket(age);
-        return '<tr class="bg-white">' +
-          '<td class="px-3 py-2 font-mono text-slate-700">' + esc(i.invoiceNo) + '</td>' +
-          '<td class="px-3 py-2 text-slate-600">' + fmtDate(i.date) + '</td>' +
+      '</tr></thead><tbody class="divide-y divide-slate-100">' + rowsHtml.map(function (i) {
+        return '<tr class="bg-white"><td class="px-3 py-2 font-mono text-slate-700">' + esc(i.no) + '</td>' +
+          '<td class="px-3 py-2 text-slate-600">' + i.date + '</td>' +
           '<td class="px-3 py-2 text-right"><span class="inline-flex items-center gap-1.5 font-medium text-slate-700">' +
-            '<span class="h-2 w-2 rounded-sm ' + RC_BUCKET_TONE[b.id] + '"></span>' + age + 'd</span></td>' +
-          '<td class="px-3 py-2 text-right font-semibold text-slate-900">' + money0(i.amount) + '</td></tr>';
+            '<span class="h-2 w-2 rounded-sm ' + i.tone + '"></span>' + i.age + 'd</span></td>' +
+          '<td class="px-3 py-2 text-right font-semibold text-slate-900">' + money0(i.amt) + '</td></tr>';
       }).join('') +
       '<tr class="bg-slate-50"><td class="px-3 py-2 font-semibold text-slate-600" colspan="3">Net receivable</td>' +
         '<td class="px-3 py-2 text-right font-bold text-slate-900">' + money0(r.outstanding) + '</td></tr>' +
       '</tbody></table></div>';
+
+    return stacked + table;
   }
 
-  function rcDetail(r) {
-    var c = rcCauseOf(r.cause);
-    var acts = RC_ACTIONS[r.cause].concat([{ k: 'remind', label: 'Send WhatsApp reminder' }])
-      .filter(function (a, i, arr) {
-        return arr.map(function (x) { return x.k; }).indexOf(a.k) === i;   // de-dupe 'remind'
-      });
-    return '<tr class="bg-slate-50/70"><td colspan="6" class="px-6 py-5">' +
-      '<div class="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">' +
-        '<div>' +
-          '<p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Invoices behind it</p>' +
-          rcInvoiceLines(r) + '</div>' +
-        '<div>' +
-          '<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Why it is stuck</p>' +
-          '<p class="mt-1.5 text-sm leading-relaxed text-slate-700">' + esc(r.reason) + '</p>' +
-          '<p class="mt-2 text-[11px] text-slate-500">' + esc(c.blurb) + '</p>' +
-          '<p class="mt-3 text-xs text-slate-500">Last contacted: ' +
-            (r.lastContact ? fmtDate(r.lastContact) + ' <span class="text-slate-400">(' + rcAge(r.lastContact) + 'd ago)</span>'
-                           : '<span class="font-semibold text-red-600">never</span>') + '</p>' +
-          '<div class="mt-4 flex flex-wrap gap-2">' + acts.map(function (a, i) {
-            return '<button data-rc-act="' + a.k + '" data-rc-scope="' + esc(r.id) + '" ' +
-              'class="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ' +
-              (i === 0 ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                       : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50') + '">' +
-              esc(a.label) + '</button>';
-          }).join('') + '</div>' +
-        '</div>' +
-      '</div></td></tr>';
+  /* compact = the phone card, which shows only the cause's primary action and
+     Remind. Three buttons in a two-column grid orphans the third onto its own
+     row; the full set stays one tap away in the expansion. Single column below
+     360px, where two buttons would each wrap to three lines. */
+  function rcRowActions(r, compact) {
+    var acts = RC_ACTIONS[r.cause].concat([{ k: 'remind', label: 'Remind' }]).filter(function (a, i, arr) {
+      return arr.map(function (x) { return x.k; }).indexOf(a.k) === i;
+    });
+    if (compact) acts = [acts[0], { k: 'remind', label: 'Remind' }];
+    return '<div class="grid gap-2 ' +
+      (compact ? 'grid-cols-1 min-[360px]:grid-cols-2' : 'grid-cols-2 sm:flex sm:flex-wrap') + '">' +
+      acts.map(function (a, i) {
+        return '<button data-rc-act="' + a.k + '" data-rc-scope="' + esc(r.id) + '" ' +
+          'class="min-h-[44px] rounded-lg px-3 text-sm font-semibold transition-colors ' +
+          (i === 0 ? 'bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800'
+                   : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50') + '">' +
+          esc(a.label) + '</button>';
+      }).join('') + '</div>';
   }
 
-  function rcTable(rows, all) {
-    var TH = 'border-b border-slate-200 px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap';
-    var paged = rows.length > PAGE_SIZE ? pageSlice(rows, 'outstanding_recovery') : rows;
+  function rcWhyStuck(r) {
+    return '<div class="rounded-lg bg-slate-50 p-3">' +
+      '<p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Why it is stuck</p>' +
+      '<p class="mt-1 text-sm leading-relaxed text-slate-700">' + esc(r.reason) + '</p>' +
+      '<p class="mt-2 text-xs text-slate-500">Last contacted: ' +
+        (r.lastContact ? fmtDate(r.lastContact) + ' (' + rcAge(r.lastContact) + 'd ago)'
+                       : '<span class="font-semibold text-red-600">never</span>') + '</p></div>';
+  }
 
-    var head = '<thead><tr class="bg-slate-50">' +
-      ['Customer', 'Outstanding', 'Oldest', 'Cause', 'Route / Salesman', ''].map(function (c, i) {
-        return '<th class="' + TH + (i === 1 || i === 2 ? ' text-right' : '') + '">' + c + '</th>';
-      }).join('') + '</tr></thead>';
+  /* Where the card list gives way to the table. Grow carries a fifth column
+     (Route / Salesman) that needs about 100px more than `lg` leaves once the
+     module's own 256px sidebar is on screen, so it holds the cards until `xl`.
+     Literal strings on both branches — the Play CDN generates from the class
+     attributes it actually sees in the DOM. */
+  function rcBP() {
+    return rcTier === 'grow'
+      ? { cards: 'xl:hidden', table: 'hidden xl:block', one: 'xl:grid-cols-1' }
+      : { cards: 'lg:hidden', table: 'hidden lg:block', one: 'lg:grid-cols-1' };
+  }
 
-    var body = '<tbody>' + (paged.length ? paged.map(function (r) {
-      var o = rcOwner(r), c = rcCauseOf(r.cause), age = rcOldest(r), b = rcBucket(age);
+  /* phone + tablet: cards. A sideways-scrolling table is a desktop table that
+     has been apologised for (addendum-003 D17). */
+  function rcCards(rows, all) {
+    if (!rows.length) return '<p class="rounded-xl border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-400">' +
+      'No shops match the current filters.</p>';
+    return '<ul class="grid grid-cols-1 gap-3 sm:grid-cols-2 ' + rcBP().one + '">' + rows.map(function (r) {
+      var c = rcCauseOf(r.cause), o = RC_OWNER[c.owner], age = rcOldest(r), b = rcBucket(age);
+      var open = rcOpen.indexOf(r.id) !== -1;
+      return '<li class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">' +
+        '<div class="border-l-4 ' + o.bar.replace('bg-', 'border-l-') + ' p-4">' +
+          '<div class="flex items-start justify-between gap-3">' +
+            '<div class="min-w-0">' +
+              '<p class="truncate text-base font-semibold leading-tight text-slate-900">' + esc(r.customer) + '</p>' +
+              '<p class="mt-1 truncate text-xs text-slate-500">' +
+                (rcTier === 'start' ? '✆ ' + esc(r.phone)
+                                    : esc(r.route.replace(' Route', '')) + ' · ' + esc(r.salesman)) + '</p></div>' +
+            '<div class="shrink-0 text-right">' +
+              '<p class="text-lg font-bold tabular-nums leading-none text-slate-900">' + money0(r.outstanding) + '</p>' +
+              '<p class="mt-1.5 inline-flex items-center gap-1 text-xs font-medium ' +
+                (age > 60 ? 'text-red-600' : 'text-slate-500') + '">' +
+                '<span class="h-2 w-2 rounded-sm ' + RC_BUCKET_TONE[b.id] + '"></span>' + age + 'd</p></div>' +
+          '</div>' +
+          (rcTier === 'start' ? '' :
+            '<p class="mt-3"><span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ' +
+              o.chip + '"><span class="h-1.5 w-1.5 rounded-full ' + o.dot + '"></span>' + esc(c.label) + '</span></p>') +
+          '<div class="mt-3">' + rcRowActions(r, true) + '</div>' +
+          '<button data-rc-row="' + esc(r.id) + '" class="mt-1 flex min-h-[44px] w-full items-center justify-center gap-1.5 ' +
+            'text-xs font-semibold text-slate-500" aria-expanded="' + open + '">' +
+            (open ? 'Hide invoices' : r.invoices.length + ' invoice' + (r.invoices.length === 1 ? '' : 's')) +
+            ICON.feather(open ? 'FiChevronUp' : 'FiChevronDown', 'h-4 w-4') + '</button>' +
+          (open ? '<div class="mt-1 space-y-3 border-t border-slate-100 pt-3">' +
+            rcInvoiceLines(r) + rcWhyStuck(r) + '</div>' : '') +
+        '</div></li>';
+    }).join('') + '</ul>';
+  }
+
+  function rcTableRows(rows, all) {
+    var TH = 'border-b border-slate-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap lg:px-6';
+    // Cause rides under the shop name rather than taking a column of its own:
+    // as a sixth column it pushed the Grow table to 1068px, which does not fit
+    // beside the module's 256px sidebar at lg and was being clipped, not
+    // scrolled. Route/Salesman stays a column only where it is the point.
+    var cols = rcTier === 'grow'
+      ? ['Shop', 'Owes', 'Oldest', 'Route / Salesman', '']
+      : ['Shop', 'Owes', 'Oldest', ''];
+    var span = cols.length;
+
+    var head = '<thead><tr class="bg-slate-50">' + cols.map(function (c, i) {
+      return '<th class="' + TH + (i === 1 || i === 2 ? ' text-right' : '') + '">' + c + '</th>';
+    }).join('') + '</tr></thead>';
+
+    var body = '<tbody>' + (rows.length ? rows.map(function (r) {
+      var c = rcCauseOf(r.cause), o = RC_OWNER[c.owner], age = rcOldest(r), b = rcBucket(age);
       var open = rcOpen.indexOf(r.id) !== -1;
       var prim = RC_ACTIONS[r.cause][0];
+      var TD = 'px-4 py-4 lg:px-6';
       return '<tr data-rc-row="' + esc(r.id) + '" class="cursor-pointer border-b border-slate-100 border-l-2 ' +
-          (o.bar.replace('bg-', 'border-l-')) + ' transition-colors ' + (open ? 'bg-slate-50' : 'hover:bg-slate-50/60') + '">' +
-        '<td class="px-6 py-4">' +
-          '<div class="flex items-center gap-2">' +
-            '<span class="text-slate-400">' + ICON.feather(open ? 'FiChevronUp' : 'FiChevronDown', 'h-4 w-4') + '</span>' +
-            '<div class="min-w-0">' +
-              '<p class="truncate font-medium leading-tight text-slate-800">' + esc(r.customer) + '</p>' +
-              '<p class="mt-0.5 text-[11px] text-slate-400">✆ ' + esc(r.phone) + ' · ' +
-                r.invoices.length + ' invoice' + (r.invoices.length === 1 ? '' : 's') + '</p></div></div></td>' +
-        '<td class="px-6 py-4 text-right"><p class="text-sm font-semibold tabular-nums text-slate-900">' + money0(r.outstanding) + '</p>' +
-          '<p class="mt-0.5 text-[11px] text-slate-400">' + rcPct(r.outstanding, rcSum(all)) + '% of total</p></td>' +
-        '<td class="px-6 py-4 text-right">' +
-          '<span class="inline-flex items-center gap-1.5 text-sm font-medium ' + (age > 60 ? 'text-red-600' : 'text-slate-700') + '">' +
-            '<span class="h-2 w-2 rounded-sm ' + RC_BUCKET_TONE[b.id] + '"></span>' + age + 'd</span>' +
-          '<p class="mt-0.5 text-[11px] text-slate-400">' + esc(b.label) + '</p></td>' +
-        '<td class="px-6 py-4">' +
-          '<span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-medium ' + o.chip + '">' +
-            '<span class="h-1.5 w-1.5 shrink-0 rounded-full ' + o.dot + '"></span>' + esc(c.label) + '</span></td>' +
-        '<td class="px-6 py-4"><p class="text-sm text-slate-700">' + esc(r.route.replace(' Route', '')) + '</p>' +
-          '<p class="mt-0.5 text-[11px] text-slate-400">' + esc(r.salesman) + ' · last contact ' +
-            (r.lastContact ? rcAge(r.lastContact) + 'd ago' : 'never') + '</p></td>' +
-        '<td class="px-6 py-4 text-right">' +
-          '<button data-rc-act="' + prim.k + '" data-rc-scope="' + esc(r.id) + '" ' +
-            'class="whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold ' +
-            'text-slate-700 transition-colors hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700">' +
-            esc(prim.label) + '</button></td></tr>' +
-        (open ? rcDetail(r) : '');
+          o.bar.replace('bg-', 'border-l-') + ' transition-colors ' + (open ? 'bg-slate-50' : 'hover:bg-slate-50/60') + '">' +
+        '<td class="' + TD + '"><div class="flex items-center gap-2">' +
+          '<span class="text-slate-400">' + ICON.feather(open ? 'FiChevronUp' : 'FiChevronDown', 'h-4 w-4') + '</span>' +
+          '<div class="min-w-0"><p class="truncate font-medium leading-tight text-slate-800">' + esc(r.customer) + '</p>' +
+            (rcTier === 'start' ? '' :
+              '<p class="mt-1"><span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border ' +
+                'px-2 py-0.5 text-xs font-medium ' + o.chip + '">' +
+                '<span class="h-1.5 w-1.5 shrink-0 rounded-full ' + o.dot + '"></span>' + esc(c.label) + '</span></p>') +
+            '<p class="mt-1 text-xs text-slate-400">✆ ' + esc(r.phone) + ' · ' + r.invoices.length +
+              ' invoice' + (r.invoices.length === 1 ? '' : 's') + '</p></div></div></td>' +
+        '<td class="' + TD + ' text-right"><p class="text-sm font-semibold tabular-nums text-slate-900">' + money0(r.outstanding) + '</p></td>' +
+        '<td class="' + TD + ' text-right"><span class="inline-flex items-center gap-1.5 text-sm font-medium ' +
+          (age > 60 ? 'text-red-600' : 'text-slate-700') + '">' +
+          '<span class="h-2 w-2 rounded-sm ' + RC_BUCKET_TONE[b.id] + '"></span>' + age + 'd</span></td>' +
+        (rcTier === 'grow' ?
+          '<td class="' + TD + '"><p class="text-sm text-slate-700">' + esc(r.route.replace(' Route', '')) + '</p>' +
+            '<p class="mt-0.5 text-xs text-slate-400">' + esc(r.salesman) + ' · last contact ' +
+            (r.lastContact ? rcAge(r.lastContact) + 'd ago' : 'never') + '</p></td>' : '') +
+        '<td class="' + TD + ' text-right"><button data-rc-act="' + prim.k + '" data-rc-scope="' + esc(r.id) + '" ' +
+          'class="min-h-[44px] whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold ' +
+          'text-slate-700 transition-colors hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700">' +
+          esc(prim.label) + '</button></td></tr>' +
+        (open ? '<tr class="bg-slate-50/70"><td colspan="' + span + '" class="px-4 py-5 lg:px-6">' +
+          '<div class="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">' +
+            '<div>' + rcInvoiceLines(r) + '</div>' +
+            '<div class="space-y-3">' + rcWhyStuck(r) + rcRowActions(r) + '</div>' +
+          '</div></td></tr>' : '');
     }).join('')
-      : '<tr><td colspan="6" class="px-6 py-12 text-center text-sm text-slate-400">' +
-        'No outstanding matches the current filters.</td></tr>') + '</tbody>';
+      : '<tr><td colspan="' + span + '" class="px-6 py-12 text-center text-sm text-slate-400">' +
+        'No shops match the current filters.</td></tr>') + '</tbody>';
 
     return head + body;
+  }
+
+  /* ---- the tier switcher — a discovery affordance, not a product control ---- */
+  function rcTierBar() {
+    var t = rcTierOf();
+    return '<section class="rounded-2xl border border-dashed border-slate-300 bg-white/60 p-3 sm:p-4">' +
+      '<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">' +
+        '<div class="min-w-0">' +
+          '<p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Prototype · showing what one plan sees</p>' +
+          '<p class="mt-1 text-sm text-slate-600">“' + esc(t.awake) + '” — so this plan’s job is to ' +
+            '<strong class="font-semibold text-slate-800">' + esc(t.job.toLowerCase()) + '</strong>.</p>' +
+          '<p class="mt-0.5 text-xs text-slate-400">' + esc(t.fit) + '</p>' +
+        '</div>' +
+        '<div class="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 sm:mx-0 sm:shrink-0 sm:overflow-visible sm:px-0 sm:pb-0">' +
+          S.recoveryTiers.map(function (x) {
+            var on = x.id === rcTier;
+            return '<button data-rc-tier="' + x.id + '" aria-pressed="' + on + '" ' +
+              'class="min-h-[44px] shrink-0 whitespace-nowrap rounded-lg border px-3 text-sm font-semibold transition-colors ' +
+              (on ? 'border-emerald-600 bg-emerald-600 text-white'
+                  : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50') + '">' +
+              esc(x.price) + ' <span class="font-normal ' + (on ? 'text-emerald-100' : 'text-slate-400') + '">' +
+              esc(x.name) + '</span></button>';
+          }).join('') +
+        '</div></div></section>';
   }
 
   function outstandingRecovery() {
@@ -1756,57 +1981,59 @@
       return true;
     }).sort(function (a, b) { return b.outstanding - a.outstanding; });
 
-    var active = [];
-    if (rcCause) active.push({ label: rcCauseOf(rcCause).label, clear: 'cause' });
-    if (rcRoute !== 'all') active.push({ label: rcRoute, clear: 'route' });
-    if (rcCustomer) active.push({
-      label: all.filter(function (r) { return r.id === rcCustomer; })[0].customer, clear: 'customer' });
+    var chips = [];
+    if (rcCause) chips.push({ label: rcCauseOf(rcCause).label, clear: 'cause' });
+    if (rcRoute !== 'all') chips.push({ label: rcRoute, clear: 'route' });
+    if (rcCustomer) chips.push({
+      label: (all.filter(function (r) { return r.id === rcCustomer; })[0] || {}).customer, clear: 'customer' });
 
-    var C_H8 = 'h-8 rounded-lg border border-slate-200 bg-white text-xs text-slate-700 ' +
-      'focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-300';
-
-    var chips = active.map(function (a) {
-      return '<button data-rc-clear="' + a.clear + '" class="inline-flex items-center gap-1.5 rounded-full border ' +
-        'border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100">' +
-        esc(a.label) + ICON.feather('FiX', 'h-3 w-3') + '</button>';
-    }).join('');
-
-    var toolbar =
-      '<div class="flex flex-wrap items-center gap-3 px-6 pt-5">' +
-        '<div><h3 class="text-base font-semibold text-slate-800">Who to recover it from</h3>' +
-          '<p class="mt-0.5 text-xs text-slate-500">Sorted by exposure. Open a row for the invoices behind it and what to do next.</p></div>' +
-        '<div class="ml-auto flex flex-wrap items-center gap-2">' +
-          '<div class="relative">' +
-            '<span class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">' +
-              ICON.feather('FiSearch', 'h-3.5 w-3.5') + '</span>' +
-            '<input id="rc-search" value="' + esc(window.__rcSearch || '') + '" placeholder="Search customer or salesman…" ' +
-              'class="' + C_H8 + ' pl-8 pr-3 placeholder-slate-400"></div>' +
-          '<select id="rc-route" class="' + C_H8 + ' px-2.5"><option value="all">All routes</option>' +
-            S.routes.map(function (r) {
-              return '<option value="' + esc(r) + '"' + (r === rcRoute ? ' selected' : '') + '>' + esc(r) + '</option>';
-            }).join('') + '</select>' +
-        '</div>' +
-        (chips ? '<div class="flex w-full flex-wrap items-center gap-2 border-t border-slate-100 pt-3">' +
-          '<span class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Filtered by</span>' + chips +
-          '<button data-rc-clear="all" class="text-xs text-slate-400 underline hover:text-slate-600">Clear all</button></div>' : '') +
-      '</div>';
-
-    var shown = rcSum(rows);
-    var footer = rows.length
-      ? (rows.length > PAGE_SIZE ? pagination('outstanding_recovery', rows.length) : '') +
-        '<div class="border-t border-slate-100 px-6 py-2.5 text-xs text-slate-400">' +
-          rows.length + ' customer' + (rows.length === 1 ? '' : 's') + ' · ' + money0(shown) +
-          (rows.length === all.length ? ' · all outstanding' : ' of ' + money0(rcSum(all)) + ' outstanding') +
-        '</div>'
+    var chipRow = chips.length
+      ? '<div class="flex flex-wrap items-center gap-2">' + chips.map(function (a) {
+          return '<button data-rc-clear="' + a.clear + '" class="inline-flex min-h-[36px] items-center gap-1.5 rounded-full ' +
+            'border border-emerald-200 bg-emerald-50 px-3 text-xs font-medium text-emerald-700 hover:bg-emerald-100">' +
+            esc(a.label) + ICON.feather('FiX', 'h-3.5 w-3.5') + '</button>';
+        }).join('') +
+        '<button data-rc-clear="all" class="min-h-[36px] px-1 text-xs text-slate-400 underline hover:text-slate-600">Clear all</button></div>'
       : '';
 
-    return '<div class="space-y-4">' +
-      rcHero(all) +
-      rcCauseCards(all) +
-      rcConcentration(all) +
-      '<div class="' + C_CONTAINER + ' mb-0">' + toolbar +
-        '<div class="mt-4 overflow-x-auto"><table class="w-full border-separate border-spacing-0 text-sm">' +
-          rcTable(rows, all) + '</table></div>' + footer + '</div>' +
+    var search = '<div class="relative w-full sm:w-64">' +
+      '<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">' +
+        ICON.feather('FiSearch', 'h-4 w-4') + '</span>' +
+      '<input id="rc-search" value="' + esc(window.__rcSearch || '') + '" placeholder="Search shop or salesman…" ' +
+        'class="min-h-[44px] w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 ' +
+        'placeholder-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"></div>';
+
+    var listHead =
+      '<div class="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">' +
+        '<div><h3 class="text-base font-semibold text-slate-800">' +
+          (rcTier === 'start' ? 'Who owes you' : 'Who to recover it from') + '</h3>' +
+          '<p class="mt-0.5 text-xs text-slate-500">' + rows.length + ' of ' + all.length + ' shops · ' +
+            money0(rcSum(rows)) + '</p></div>' +
+        search +
+      '</div>' + (chipRow ? '<div class="px-4 pt-3 sm:px-6">' + chipRow + '</div>' : '');
+
+    // The phone list shows every filtered row. Paging a 14-row list on a phone is
+    // friction, and the shared pagination() control — copied class-for-class from
+    // the app's CustomPagination.jsx, and used by the other five tabs — has 28px
+    // targets that fail a touch check. Scrolling is the phone-native answer, and
+    // it leaves that shared chrome untouched for the tabs built on it.
+    var paged = rows.length > PAGE_SIZE ? pageSlice(rows, 'outstanding_recovery') : rows;
+    var pager = rows.length > PAGE_SIZE
+      ? '<div class="' + rcBP().table + '">' + pagination('outstanding_recovery', rows.length) + '</div>'
+      : '';
+
+    return '<div class="space-y-4 pb-4 sm:space-y-5">' +
+      rcTierBar() +
+      rcVerdict(all) +
+      rcActions(all) +
+      rcWhy(all) +
+      '<section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">' +
+        listHead +
+        '<div class="p-4 ' + rcBP().cards + '">' + rcCards(rows, all) + '</div>' +
+        '<div class="overflow-x-auto ' + rcBP().table + '"><table class="w-full border-separate border-spacing-0 text-sm">' +
+          rcTableRows(paged, all) + '</table></div>' +
+        pager +
+      '</section>' +
     '</div>';
   }
 
@@ -1839,6 +2066,14 @@
        Actions are tested first: they sit inside cause cards and inside
        clickable table rows, so otherwise the click would also toggle the
        filter or expand the row underneath them. */
+    if ((t = e.target.closest('[data-rc-tier]'))) {
+      // the tiers show different columns and a different first screen, so a
+      // filter set under one tier would not survive the switch meaningfully
+      rcTier = t.dataset.rcTier;
+      rcCause = null; rcRoute = 'all'; rcCustomer = null; rcOpen = [];
+      page.outstanding_recovery = 1; renderPanel(); return;
+    }
+    if (e.target.closest('[data-rc-why]')) { rcWhyOpen = !rcWhyIsOpen(); renderPanel(); return; }
     if ((t = e.target.closest('[data-rc-act]'))) {
       window.alert(RC_DEAD[t.dataset.rcAct]);
       return;
