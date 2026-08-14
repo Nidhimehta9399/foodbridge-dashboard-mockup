@@ -153,57 +153,65 @@ window.SEED = {
   routes: [ "Hadapsar Route", "Sangola Route", "Kondhwa Route" ],
   staff: [ "Mahesh", "Sunil", "Pravin" ],
 
-  _recoveryNote: "The Dashboard's only view of money owed today is `paymentStatus` on an order. This tab groups receivables by WHY they are stuck, so the owner acts on a business area rather than a debtor list. INVENTED, because the source systems cannot produce them: `cause` (no dispute/credit-note linkage anywhere), every day-count (the Finance module has no due date or credit terms, so ageing is not computable), `route`/`salesman` on a receivable, and `lastContact` (follow-ups are tracked for ordering, not paying). Vocabulary — invoiced / collected / outstanding / advance / net receivable — is reused verbatim from the Finance module rather than reinvented, but none of its figures are: that seed carries 7 rupees of total outstanding, so it cannot drive this report. RECONCILES: rows sum to 32400 across 14 customers = the 5 cause totals = ours 14100 + theirs 18300 = the 3 route totals; each row's invoices sum to its outstanding; ageing buckets and oldest-age are DERIVED from invoice dates against tenant.asOf, never stored. `prevOutstanding` is the one stored aggregate (28700 total, so the month moved +3700) because no row can supply a prior state. 32400 is 17.3% of all-time sales (187070.70) — a plausible share, checked because an earlier draft exceeded the tenant's entire lifetime revenue. See discovery/instructions/addendum-002. ALSO INVENTED (addendum-003): `effort`/`effortRank` — how hard a cause is to fix is a human judgement, not a rule over the data, so it is stored like `cause` itself.",
-  recoveryCauses: [
+  "_recoveryNote": "The Dashboard's only view of money owed today is `paymentStatus` on an order. This tab groups receivables by WHY they are stuck, so the owner acts on a business area rather than a debtor list. INVENTED, because the source systems cannot produce them: `cause` (no dispute/credit-note linkage anywhere), every day-count (the Finance module has no due date or credit terms, so ageing is not computable), `route`/`salesman` on a receivable, and `lastContact` (follow-ups are tracked for ordering, not paying). Vocabulary — invoiced / collected / outstanding / advance / net receivable — is reused verbatim from the Finance module rather than reinvented, but none of its figures are: that seed carries 7 rupees of total outstanding, so it cannot drive this report. RECONCILES: rows sum to 32400 across 14 customers = the 5 cause totals = ours 14100 + theirs 18300 = the 3 route totals; each row's invoices sum to its outstanding; ageing buckets and oldest-age are DERIVED from invoice dates against tenant.asOf, never stored. `prevOutstanding` is the one stored aggregate (28700 total, so the month moved +3700) because no row can supply a prior state. 32400 is 17.3% of all-time sales (187070.70) — a plausible share, checked because an earlier draft exceeded the tenant's entire lifetime revenue. See discovery/instructions/addendum-002. ALSO INVENTED (addendum-003): `effort`/`effortRank` — how hard a cause is to fix is a human judgement, not a rule over the data, so it is stored like `cause` itself. SIXTH CAUSE (addendum-007): `unclassified` exists because the source systems cannot derive cause at all — forcing all 14 rows into five confident buckets was false precision. Its owner is `unknown`, which makes the header split three-way: some money is stuck for a reason nobody has recorded, and that is itself the finding. prevOutstanding re-spread across six causes, still summing to 28700.",
+  "recoveryCauses": [
     {
-      id: "disputed",
-      label: "Disputed / quality claim",
-      owner: "us",
-      blurb: "Goods delivered, customer has raised a claim. Nobody is going to pay until it is settled or credited.",
-      actionLabel: "Resolve or credit-note",
-      prevOutstanding: 5200,
-      effort: "Sales + QC · needs a visit and a decision",
-      effortRank: 5
+      "id": "disputed",
+      "label": "Disputed / quality claim",
+      "owner": "us",
+      "blurb": "Goods delivered, customer has raised a claim. Nobody is going to pay until it is settled or credited.",
+      "actionLabel": "Resolve or credit-note",
+      "prevOutstanding": 4600,
+      "effort": "Sales + QC · needs a visit and a decision",
+      "effortRank": 5
     },
     {
-      id: "delivery_failed",
-      label: "Delivery failed, invoice raised",
-      owner: "us",
-      blurb: "Short-delivered or returned at the door, but the invoice went out anyway. This is a billing error, not a debt.",
-      actionLabel: "Cancel or redeliver",
-      prevOutstanding: 5900,
-      effort: "Logistics · fix on today's run",
-      effortRank: 2
+      "id": "delivery_failed",
+      "label": "Delivery failed, invoice raised",
+      "owner": "us",
+      "blurb": "Short-delivered or returned at the door, but the invoice went out anyway. This is a billing error, not a debt.",
+      "actionLabel": "Cancel or redeliver",
+      "prevOutstanding": 5900,
+      "effort": "Logistics · fix on today's run",
+      "effortRank": 2
     },
     {
-      id: "not_acknowledged",
-      label: "Invoice not acknowledged",
-      owner: "us",
-      blurb: "GST or PO details do not match, so the invoice never entered their books. It cannot age into a payment.",
-      actionLabel: "Re-issue paperwork",
-      prevOutstanding: 2400,
-      effort: "Back office · no customer contact",
-      effortRank: 1
+      "id": "not_acknowledged",
+      "label": "Invoice not acknowledged",
+      "owner": "us",
+      "blurb": "GST or PO details do not match, so the invoice never entered their books. It cannot age into a payment.",
+      "actionLabel": "Re-issue paperwork",
+      "prevOutstanding": 2400,
+      "effort": "Back office · no customer contact",
+      "effortRank": 1
     },
     {
-      id: "terms_exceeded",
-      label: "Credit terms exceeded",
-      owner: "them",
-      blurb: "Past the agreed credit period and still buying. Every further supply extends the exposure.",
-      actionLabel: "Move to cash-only",
-      prevOutstanding: 8300,
-      effort: "Your call · one message stops it growing",
-      effortRank: 3
+      "id": "terms_exceeded",
+      "label": "Credit terms exceeded",
+      "owner": "them",
+      "blurb": "Past the agreed credit period and still buying. Every further supply extends the exposure.",
+      "actionLabel": "Move to cash-only",
+      "prevOutstanding": 7400,
+      "effort": "Your call · one message stops it growing",
+      "effortRank": 3
     },
     {
-      id: "habitual_late",
-      label: "Habitual late payer",
-      owner: "them",
-      blurb: "Always pays, always late. Costs collection effort every cycle rather than money.",
-      actionLabel: "Assign to route collection",
-      prevOutstanding: 6900,
-      effort: "Salesman · routine collection visit",
-      effortRank: 4
+      "id": "habitual_late",
+      "label": "Habitual late payer",
+      "owner": "them",
+      "blurb": "Always pays, always late. Costs collection effort every cycle rather than money.",
+      "actionLabel": "Assign to route collection",
+      "prevOutstanding": 5000,
+      "effort": "Salesman · routine collection visit",
+      "effortRank": 4
+    },
+    {
+      "id": "unclassified",
+      "label": "Cause not established",
+      "owner": "unknown",
+      "blurb": "Nobody has recorded why this is stuck. It is not a dispute, a failed delivery or a terms breach as far as the system knows — it is simply unexplained, and cannot be worked until someone finds out.",
+      "actionLabel": "Find out why",
+      "prevOutstanding": 3400
     }
   ],
   recoveryAgeBuckets: [
@@ -228,303 +236,304 @@ window.SEED = {
       max: null
     }
   ],
-  recoveryOutstanding: [
+  "recoveryOutstanding": [
     {
-      id: "raj-traders",
-      customer: "Raj Traders",
-      phone: "53197286440",
-      route: "Hadapsar Route",
-      salesman: "Mahesh",
-      cause: "terms_exceeded",
-      lastContact: "2026-07-29",
-      reason: "45-day terms agreed; three cycles supplied since without a payment.",
-      outstanding: 7450,
-      invoices: [
+      "id": "raj-traders",
+      "customer": "Raj Traders",
+      "phone": "53197286440",
+      "route": "Hadapsar Route",
+      "salesman": "Mahesh",
+      "cause": "terms_exceeded",
+      "lastContact": "2026-07-29",
+      "reason": "45-day terms agreed; three cycles supplied since without a payment.",
+      "outstanding": 7450,
+      "invoices": [
         {
-          invoiceNo: "20266190445512",
-          date: "2026-06-19",
-          amount: 4200
+          "invoiceNo": "20266190445512",
+          "date": "2026-06-19",
+          "amount": 4200
         },
         {
-          invoiceNo: "20267110238804",
-          date: "2026-07-11",
-          amount: 2100
+          "invoiceNo": "20267110238804",
+          "date": "2026-07-11",
+          "amount": 2100
         },
         {
-          invoiceNo: "20267260915337",
-          date: "2026-07-26",
-          amount: 1150
+          "invoiceNo": "20267260915337",
+          "date": "2026-07-26",
+          "amount": 1150
         }
       ]
     },
     {
-      id: "mahesh-kumar",
-      customer: "Mahesh Kumar",
-      phone: "744444444",
-      route: "Hadapsar Route",
-      salesman: "Mahesh",
-      cause: "disputed",
-      lastContact: "2026-08-02",
-      reason: "Claims 2 crates of the wholesale pallet arrived crushed. Awaiting QC visit.",
-      outstanding: 4150,
-      invoices: [
+      "id": "mahesh-kumar",
+      "customer": "Mahesh Kumar",
+      "phone": "744444444",
+      "route": "Hadapsar Route",
+      "salesman": "Mahesh",
+      "cause": "disputed",
+      "lastContact": "2026-08-02",
+      "reason": "Claims 2 crates of the wholesale pallet arrived crushed. Awaiting QC visit.",
+      "outstanding": 4150,
+      "invoices": [
         {
-          invoiceNo: "20266080712260",
-          date: "2026-06-08",
-          amount: 2600
+          "invoiceNo": "20266080712260",
+          "date": "2026-06-08",
+          "amount": 2600
         },
         {
-          invoiceNo: "20267040433915",
-          date: "2026-07-04",
-          amount: 1550
+          "invoiceNo": "20267040433915",
+          "date": "2026-07-04",
+          "amount": 1550
         }
       ]
     },
     {
-      id: "shivam-grocery-store",
-      customer: "Shivam Grocery Store",
-      phone: "28946175318",
-      route: "Sangola Route",
-      salesman: "Sunil",
-      cause: "terms_exceeded",
-      lastContact: "2026-08-05",
-      reason: "30-day terms; oldest invoice at 34 days and a fresh order placed last week.",
-      outstanding: 3120,
-      invoices: [
+      "id": "shivam-grocery-store",
+      "customer": "Shivam Grocery Store",
+      "phone": "28946175318",
+      "route": "Sangola Route",
+      "salesman": "Sunil",
+      "cause": "terms_exceeded",
+      "lastContact": "2026-08-05",
+      "reason": "30-day terms; oldest invoice at 34 days and a fresh order placed last week.",
+      "outstanding": 3120,
+      "invoices": [
         {
-          invoiceNo: "20267070851124",
-          date: "2026-07-07",
-          amount: 1870
+          "invoiceNo": "20267070851124",
+          "date": "2026-07-07",
+          "amount": 1870
         },
         {
-          invoiceNo: "20267240604471",
-          date: "2026-07-24",
-          amount: 1250
+          "invoiceNo": "20267240604471",
+          "date": "2026-07-24",
+          "amount": 1250
         }
       ]
     },
     {
-      id: "krishna-kirana-general-store",
-      customer: "Krishna Kirana & General Store",
-      phone: "19468572033",
-      route: "Kondhwa Route",
-      salesman: "Pravin",
-      cause: "habitual_late",
-      lastContact: null,
-      reason: "Settles roughly every third month in one lump. Never refused, never on time.",
-      outstanding: 2860,
-      invoices: [
+      "id": "krishna-kirana-general-store",
+      "customer": "Krishna Kirana & General Store",
+      "phone": "19468572033",
+      "route": "Kondhwa Route",
+      "salesman": "Pravin",
+      "cause": "habitual_late",
+      "lastContact": null,
+      "reason": "Settles roughly every third month in one lump. Never refused, never on time.",
+      "outstanding": 2860,
+      "invoices": [
         {
-          invoiceNo: "20265140922806",
-          date: "2026-05-14",
-          amount: 1340
+          "invoiceNo": "20265140922806",
+          "date": "2026-05-14",
+          "amount": 1340
         },
         {
-          invoiceNo: "20266260338190",
-          date: "2026-06-26",
-          amount: 980
+          "invoiceNo": "20266260338190",
+          "date": "2026-06-26",
+          "amount": 980
         },
         {
-          invoiceNo: "20267210745628",
-          date: "2026-07-21",
-          amount: 540
+          "invoiceNo": "20267210745628",
+          "date": "2026-07-21",
+          "amount": 540
         }
       ]
     },
     {
-      id: "aai-mata-general-store",
-      customer: "Aai Mata General Store",
-      phone: "82736450195",
-      route: "Hadapsar Route",
-      salesman: "Mahesh",
-      cause: "delivery_failed",
-      lastContact: "2026-08-08",
-      reason: "Shop shut on both delivery attempts; stock came back on the van but the invoice stood.",
-      outstanding: 2240,
-      invoices: [
+      "id": "aai-mata-general-store",
+      "customer": "Aai Mata General Store",
+      "phone": "82736450195",
+      "route": "Hadapsar Route",
+      "salesman": "Mahesh",
+      "cause": "delivery_failed",
+      "lastContact": "2026-08-08",
+      "reason": "Shop shut on both delivery attempts; stock came back on the van but the invoice stood.",
+      "outstanding": 2240,
+      "invoices": [
         {
-          invoiceNo: "20267140518743",
-          date: "2026-07-14",
-          amount: 1490
+          "invoiceNo": "20267140518743",
+          "date": "2026-07-14",
+          "amount": 1490
         },
         {
-          invoiceNo: "20267300827055",
-          date: "2026-07-30",
-          amount: 750
+          "invoiceNo": "20267300827055",
+          "date": "2026-07-30",
+          "amount": 750
         }
       ]
     },
     {
-      id: "shree-ram-super-market",
-      customer: "Shree Ram Super Market",
-      phone: "56820973184",
-      route: "Kondhwa Route",
-      salesman: "Pravin",
-      cause: "not_acknowledged",
-      lastContact: "2026-06-12",
-      reason: "GSTIN on the invoice is their old registration. Their accounts desk has never booked it.",
-      outstanding: 2180,
-      invoices: [
+      "id": "shree-ram-super-market",
+      "customer": "Shree Ram Super Market",
+      "phone": "56820973184",
+      "route": "Kondhwa Route",
+      "salesman": "Pravin",
+      "cause": "not_acknowledged",
+      "lastContact": "2026-06-12",
+      "reason": "GSTIN on the invoice is their old registration. Their accounts desk has never booked it.",
+      "outstanding": 2180,
+      "invoices": [
         {
-          invoiceNo: "20265310647329",
-          date: "2026-05-31",
-          amount: 2180
+          "invoiceNo": "20265310647329",
+          "date": "2026-05-31",
+          "amount": 2180
         }
       ]
     },
     {
-      id: "vaibhav-kirana-store",
-      customer: "Vaibhav kirana Store",
-      phone: "31857042968",
-      route: "Sangola Route",
-      salesman: "Sunil",
-      cause: "habitual_late",
-      lastContact: "2026-07-25",
-      reason: "Pays on the salesman's third visit, every time.",
-      outstanding: 2050,
-      invoices: [
+      "id": "vaibhav-kirana-store",
+      "customer": "Vaibhav kirana Store",
+      "phone": "31857042968",
+      "route": "Sangola Route",
+      "salesman": "Sunil",
+      "cause": "unclassified",
+      "lastContact": "2026-07-25",
+      "reason": "Three invoices, no dispute logged and no reminder recorded. Nobody knows whether they are unhappy or just slow.",
+      "outstanding": 2050,
+      "invoices": [
         {
-          invoiceNo: "20266300409617",
-          date: "2026-06-30",
-          amount: 1200
+          "invoiceNo": "20266300409617",
+          "date": "2026-06-30",
+          "amount": 1200
         },
         {
-          invoiceNo: "20267180936482",
-          date: "2026-07-18",
-          amount: 850
+          "invoiceNo": "20267180936482",
+          "date": "2026-07-18",
+          "amount": 850
         }
       ]
     },
     {
-      id: "kunal-sweet-shop",
-      customer: "Kunal Sweet Shop",
-      phone: "3426645432",
-      route: "Sangola Route",
-      salesman: "Sunil",
-      cause: "disputed",
-      lastContact: "2026-08-01",
-      reason: "Says the cookie boxes were within 10 days of expiry on arrival. Replacement not yet agreed.",
-      outstanding: 1890,
-      invoices: [
+      "id": "kunal-sweet-shop",
+      "customer": "Kunal Sweet Shop",
+      "phone": "3426645432",
+      "route": "Sangola Route",
+      "salesman": "Sunil",
+      "cause": "disputed",
+      "lastContact": "2026-08-01",
+      "reason": "Says the cookie boxes were within 10 days of expiry on arrival. Replacement not yet agreed.",
+      "outstanding": 1890,
+      "invoices": [
         {
-          invoiceNo: "20267030127954",
-          date: "2026-07-03",
-          amount: 1890
+          "invoiceNo": "20267030127954",
+          "date": "2026-07-03",
+          "amount": 1890
         }
       ]
     },
     {
-      id: "agrawal-sweets",
-      customer: "Agrawal Sweets",
-      phone: "60471382950",
-      route: "Hadapsar Route",
-      salesman: "Mahesh",
-      cause: "habitual_late",
-      lastContact: "2026-08-06",
-      reason: "Reliable buyer, consistently 2–3 weeks behind on payment.",
-      outstanding: 1490,
-      invoices: [
+      "id": "agrawal-sweets",
+      "customer": "Agrawal Sweets",
+      "phone": "60471382950",
+      "route": "Hadapsar Route",
+      "salesman": "Mahesh",
+      "cause": "habitual_late",
+      "lastContact": "2026-08-06",
+      "reason": "Reliable buyer, consistently 2–3 weeks behind on payment.",
+      "outstanding": 1490,
+      "invoices": [
         {
-          invoiceNo: "20267150803266",
-          date: "2026-07-15",
-          amount: 940
+          "invoiceNo": "20267150803266",
+          "date": "2026-07-15",
+          "amount": 940
         },
         {
-          invoiceNo: "20267280551038",
-          date: "2026-07-28",
-          amount: 550
+          "invoiceNo": "20267280551038",
+          "date": "2026-07-28",
+          "amount": 550
         }
       ]
     },
     {
-      id: "laxmi-provision-store",
-      customer: "Laxmi Provision Store",
-      phone: "97315042861",
-      route: "Hadapsar Route",
-      salesman: "Mahesh",
-      cause: "terms_exceeded",
-      lastContact: "2026-08-09",
-      reason: "15-day terms, now at 17 days. Just tipped over.",
-      outstanding: 1330,
-      invoices: [
+      "id": "laxmi-provision-store",
+      "customer": "Laxmi Provision Store",
+      "phone": "97315042861",
+      "route": "Hadapsar Route",
+      "salesman": "Mahesh",
+      "cause": "unclassified",
+      "lastContact": "2026-08-09",
+      "reason": "Was inside terms when the last invoice went out. Nothing since — no claim, no acknowledgement, no contact note.",
+      "outstanding": 1330,
+      "invoices": [
         {
-          invoiceNo: "20267240712885",
-          date: "2026-07-24",
-          amount: 1330
+          "invoiceNo": "20267240712885",
+          "date": "2026-07-24",
+          "amount": 1330
         }
       ]
     },
     {
-      id: "ganraj-kirana-mart",
-      customer: "Ganraj Kirana Mart",
-      phone: "41589627074",
-      route: "Sangola Route",
-      salesman: "Sunil",
-      cause: "delivery_failed",
-      lastContact: "2026-07-18",
-      reason: "Order cancelled at the door; cancellation never reached billing.",
-      outstanding: 1310,
-      invoices: [
+      "id": "ganraj-kirana-mart",
+      "customer": "Ganraj Kirana Mart",
+      "phone": "41589627074",
+      "route": "Sangola Route",
+      "salesman": "Sunil",
+      "cause": "delivery_failed",
+      "lastContact": "2026-07-18",
+      "reason": "Order cancelled at the door; cancellation never reached billing.",
+      "outstanding": 1310,
+      "invoices": [
         {
-          invoiceNo: "20266270248193",
-          date: "2026-06-27",
-          amount: 1310
+          "invoiceNo": "20266270248193",
+          "date": "2026-06-27",
+          "amount": 1310
         }
       ]
     },
     {
-      id: "new-bharat-general-store",
-      customer: "New Bharat General Store",
-      phone: "64082719536",
-      route: "Sangola Route",
-      salesman: "Sunil",
-      cause: "not_acknowledged",
-      lastContact: "2026-08-04",
-      reason: "No PO number on the invoice; their system rejects it on entry.",
-      outstanding: 920,
-      invoices: [
+      "id": "new-bharat-general-store",
+      "customer": "New Bharat General Store",
+      "phone": "64082719536",
+      "route": "Sangola Route",
+      "salesman": "Sunil",
+      "cause": "not_acknowledged",
+      "lastContact": "2026-08-04",
+      "reason": "No PO number on the invoice; their system rejects it on entry.",
+      "outstanding": 920,
+      "invoices": [
         {
-          invoiceNo: "20267190630704",
-          date: "2026-07-19",
-          amount: 920
+          "invoiceNo": "20267190630704",
+          "date": "2026-07-19",
+          "amount": 920
         }
       ]
     },
     {
-      id: "raman",
-      customer: "Raman",
-      phone: "985673456",
-      route: "Kondhwa Route",
-      salesman: "Pravin",
-      cause: "disputed",
-      lastContact: "2026-08-07",
-      reason: "Billed 40 bottles, counted 38 on receipt. Two-bottle difference unresolved.",
-      outstanding: 760,
-      invoices: [
+      "id": "raman",
+      "customer": "Raman",
+      "phone": "985673456",
+      "route": "Kondhwa Route",
+      "salesman": "Pravin",
+      "cause": "unclassified",
+      "lastContact": "2026-08-07",
+      "reason": "Marked for follow-up twice with no note either time. No claim raised, no payment promised.",
+      "outstanding": 760,
+      "invoices": [
         {
-          invoiceNo: "20267220845561",
-          date: "2026-07-22",
-          amount: 760
+          "invoiceNo": "20267220845561",
+          "date": "2026-07-22",
+          "amount": 760
         }
       ]
     },
     {
-      id: "balaji-general-store",
-      customer: "Balaji General Store",
-      phone: "85273140697",
-      route: "Hadapsar Route",
-      salesman: "Mahesh",
-      cause: "delivery_failed",
-      lastContact: "2026-08-10",
-      reason: "Van broke down; part-delivery invoiced in full.",
-      outstanding: 650,
-      invoices: [
+      "id": "balaji-general-store",
+      "customer": "Balaji General Store",
+      "phone": "85273140697",
+      "route": "Hadapsar Route",
+      "salesman": "Mahesh",
+      "cause": "delivery_failed",
+      "lastContact": "2026-08-10",
+      "reason": "Van broke down; part-delivery invoiced in full.",
+      "outstanding": 650,
+      "invoices": [
         {
-          invoiceNo: "20267290359427",
-          date: "2026-07-29",
-          amount: 650
+          "invoiceNo": "20267290359427",
+          "date": "2026-07-29",
+          "amount": 650
         }
       ]
     }
-  ]
+  ],
+
 };
